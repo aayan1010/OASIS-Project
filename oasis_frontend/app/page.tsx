@@ -1,5 +1,6 @@
-import Overview from "./pages/overview";
+import OverviewPage from "./pages/overview/page";
 
 export default function Home() {
-  return <Overview />;
+  return <OverviewPage />;
 }
+  

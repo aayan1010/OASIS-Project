@@ -1,9 +1,9 @@
 export const navigationItems = [
   { id: "home", label: "Overview", path: "/", icon: "ri-dashboard-3-line" },
-  { id: "performance", label: "Performance", path: "/performance", icon: "ri-line-chart-line" },
-  { id: "alerts", label: "Alerts", path: "/alerts", icon: "ri-shield-check-line" },
-  { id: "sites", label: "Sites", path: "/sites", icon: "ri-map-2-line" },
-  { id: "maintenance", label: "Maintenance", path: "/maintenance", icon: "ri-tools-line" },
+  { id: "performance", label: "Performance", path: "/pages/performance", icon: "ri-line-chart-line" },
+  { id: "alerts", label: "Alerts", path: "/pages/alerts", icon: "ri-shield-check-line" },
+  { id: "sites", label: "Sites", path: "/pages/sites", icon: "ri-map-2-line" },
+  { id: "maintenance", label: "Maintenance", path: "/pages/maintenance", icon: "ri-tools-line" },
 ];
 
 export const dashboardKpiData = [
