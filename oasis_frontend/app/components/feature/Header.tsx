@@ -29,11 +29,13 @@ function useTheme() {
 
 export default function Header() {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [mounted, setMounted] = useState(false); // 1. Add a mounted state
   const [showNotifications, setShowNotifications] = useState(false);
   const [systemStatus] = useState<"online" | "degraded" | "offline">("online");
   const { dark, toggle: toggleTheme } = useTheme();
 
   useEffect(() => {
+    setMounted(true); // 2. Set mounted to true once the client takes over
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
@@ -48,12 +50,12 @@ export default function Header() {
             <i className="ri-calendar-line text-xs"></i>
           </div>
           <span>
-            {currentTime.toLocaleDateString("en-US", {
+            {mounted ? currentTime.toLocaleDateString("en-US", {
               weekday: "short",
               month: "short",
               day: "numeric",
               year: "numeric",
-            })}
+            }) : ""}
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm font-medium text-foreground-700">
@@ -61,12 +63,12 @@ export default function Header() {
             <i className="ri-time-line text-xs"></i>
           </div>
           <span>
-            {currentTime.toLocaleTimeString("en-US", {
+            {mounted ? currentTime.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
               second: "2-digit",
               hour12: false,
-            })}
+            }) : ""}
           </span>
         </div>
       </div>
