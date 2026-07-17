@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import type { AlertThreshold } from "../components/feature/ThresholdSettings";
 import { parseNumericValue, getThresholdStatus } from "../components/feature/ThresholdSettings";

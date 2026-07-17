@@ -1,6 +1,5 @@
 "use client";
 
-import DashboardLayout from "../../components/feature/DashboardLayout";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
 import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";

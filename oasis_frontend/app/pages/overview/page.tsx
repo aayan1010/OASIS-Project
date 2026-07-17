@@ -1,17 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import DashboardLayout from "../../components/feature/DashboardLayout";
 import TopOverview from "../../components/feature/TopOverview";
-import {
-  dashboardKpiData,
-  quickActions,
-  sectorOverview,
-  recentAlerts,
-} from "../../mocks/dashboard";
+import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
+import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
+import { dashboardKpiData, quickActions, sectorOverview } from "../../mocks/dashboard";
+import { recentAlerts } from "../../mocks/alerts";
+import { assetLocations } from "../../mocks/assets";
+import { sites } from "../../mocks/sites";
+import { workOrders } from "../../mocks/maintenance";
 
-export default function OverviewPage() {
-  const [kpis, setKpis] = useState(dashboardKpiData);
-  const [activeSector, setActiveSector] = useState("oil");
+const defaultThresholds: Record<string, AlertThreshold> = {
+  "active-alerts": { warning: 15, critical: 20, direction: "above", enabled: true },
+  "system-health": { warning: 85, critical: 70, direction: "below", enabled: true },
+  "production-rate": { warning: 10000, critical: 8000, direction: "below", enabled: true },
+  "maintenance-backlog": { warning: 25, critical: 35, direction: "above", enabled: true },
+  "energy-output": { warning: 400, critical: 350, direction: "below", enabled: true },
+  "safety-incidents": { warning: 5, critical: 10, direction: "above", enabled: true },
+  "downtime": { warning: 8, critical: 12, direction: "above", enabled: true },
+  "cost-variance": { warning: 5, critical: 10, direction: "above", enabled: false },
+};
+
+const kpisWithThresholds = dashboardKpiData.map((kpi) => ({
+  ...kpi,
+  thresholds: defaultThresholds[kpi.id] || { warning: 0, critical: 0, direction: "below" as const, enabled: false },
+}));
+
+export default function Home() {
+  const [kpis, setKpis] = useState(kpisWithThresholds);
+  const [activeSector, setActiveSector] = useState("upstream");
+  const { breachAlerts, syncPageKpis, clearPageKpis } = useThresholdAlerts();
+
+  useEffect(() => {
+    syncPageKpis("overview", kpis);
+    return () => clearPageKpis("overview");
+  }, [kpis, syncPageKpis, clearPageKpis]);
 
   const handleTogglePin = (id: string) => {
     setKpis((prev) =>
@@ -19,10 +43,17 @@ export default function OverviewPage() {
     );
   };
 
-  const handleQuickAction = (id: string) => {
-    // Placeholder for quick action handlers
-    console.log("[v0] Quick action:", id);
+  const handleThresholdsChange = (id: string, t: AlertThreshold) => {
+    setKpis((prev) =>
+      prev.map((k) => (k.id === id ? { ...k, thresholds: t } : k))
+    );
   };
+
+  const handleQuickAction = (id: string) => {
+    console.log("Quick action:", id);
+  };
+
+  const allAlerts = [...breachAlerts, ...recentAlerts];
 
   return (
     <>
@@ -31,6 +62,7 @@ export default function OverviewPage() {
         subtitle="Real-time oil & gas KPIs, alerts, and system health across all operations"
         kpis={kpis}
         onTogglePin={handleTogglePin}
+        onThresholdsChange={handleThresholdsChange}
         quickActions={quickActions.map((a) => ({
           ...a,
           onClick: () => handleQuickAction(a.id),
@@ -122,11 +154,11 @@ export default function OverviewPage() {
                 Active Alerts
               </h3>
               <span className="text-xs text-accent-600 font-medium bg-accent-50 px-2 py-1 rounded-full">
-                {recentAlerts.filter((a) => a.status === "active").length} active
+                {allAlerts.filter((a) => a.status === "active").length} active
               </span>
             </div>
-            <div className="divide-y divide-background-100">
-              {recentAlerts.map((alert) => (
+            <div className="divide-y divide-background-100 max-h-[420px] overflow-y-auto">
+              {allAlerts.map((alert) => (
                 <div
                   key={alert.id}
                   className="flex items-center gap-4 px-5 py-3.5 hover:bg-background-100 transition-colors"
@@ -141,9 +173,16 @@ export default function OverviewPage() {
                     }`}
                   ></div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground-800 truncate">
-                      {alert.title}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground-800 truncate">
+                        {alert.title}
+                      </p>
+                      {"source" in alert && alert.source === "threshold" && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">
+                          Threshold
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-xs text-foreground-400">
                         {alert.module}
@@ -164,6 +203,14 @@ export default function OverviewPage() {
                   </span>
                 </div>
               ))}
+              {allAlerts.length === 0 && (
+                <div className="px-5 py-8 text-center">
+                  <div className="w-10 h-10 mx-auto flex items-center justify-center rounded-full bg-emerald-50 mb-2">
+                    <i className="ri-check-line text-emerald-500 text-lg"></i>
+                  </div>
+                  <p className="text-sm text-foreground-600">All clear — no active alerts</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -239,7 +286,7 @@ export default function OverviewPage() {
                     <i className="ri-building-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    10
+                    {sites.length}
                   </p>
                   <p className="text-xs text-foreground-500">Active Sites</p>
                 </div>
@@ -248,27 +295,27 @@ export default function OverviewPage() {
                     <i className="ri-cpu-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    332
+                    {assetLocations.length}
                   </p>
                   <p className="text-xs text-foreground-500">Total Assets</p>
                 </div>
                 <div className="text-center p-3 bg-accent-50 rounded-lg">
                   <div className="w-8 h-8 mx-auto flex items-center justify-center text-accent-600 mb-1">
-                    <i className="ri-team-line text-lg"></i>
+                    <i className="ri-alarm-warning-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    48
+                    {assetLocations.filter((a) => a.status === "offline" || a.status === "degraded").length}
                   </p>
-                  <p className="text-xs text-foreground-500">Active Crews</p>
+                  <p className="text-xs text-foreground-500">Assets at Risk</p>
                 </div>
                 <div className="text-center p-3 bg-primary-50 rounded-lg">
                   <div className="w-8 h-8 mx-auto flex items-center justify-center text-primary-600 mb-1">
-                    <i className="ri-check-double-line text-lg"></i>
+                    <i className="ri-tools-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    156
+                    {workOrders.filter((w) => w.status === "closed").length}
                   </p>
-                  <p className="text-xs text-foreground-500">Completed Today</p>
+                  <p className="text-xs text-foreground-500">WOs Completed</p>
                 </div>
               </div>
             </div>

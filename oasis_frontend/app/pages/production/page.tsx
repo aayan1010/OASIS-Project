@@ -1,17 +1,18 @@
-import DashboardLayout from "../../components/feature/DashboardLayout";
+"use client";
+
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
 import ProductionChart from "./components/ProductionChart";
 import ThroughputCards from "./components/ThroughputCards";
 import YieldComparison from "./components/YieldComparison";
 import DowntimeLog from "./components/DowntimeLog";
-import { scheduleAdherence } from "../../mocks/production";
+import { scheduleAdherence, totalDailyProduction, avgEfficiency, totalDowntime } from "../../../mocks/production";
 
 const productionKpis = [
   {
     id: "daily-output",
     title: "Daily Output",
-    value: "12,450",
+    value: totalDailyProduction.toLocaleString(),
     unit: "bbl/day",
     change: "+2.1%",
     changeType: "positive" as const,
@@ -21,8 +22,8 @@ const productionKpis = [
   },
   {
     id: "yield-vs-target",
-    title: "Yield vs Target",
-    value: "97.2%",
+    title: "Avg Efficiency",
+    value: `${avgEfficiency}%`,
     change: "+0.8%",
     changeType: "positive" as const,
     icon: "ri-percent-line",
@@ -31,8 +32,8 @@ const productionKpis = [
   },
   {
     id: "downtime-hours",
-    title: "Downtime Hours",
-    value: "4.5",
+    title: "Downtime (Jul MTD)",
+    value: String(totalDowntime),
     unit: "hrs",
     change: "-1.2",
     changeType: "positive" as const,
@@ -53,7 +54,7 @@ const productionKpis = [
   {
     id: "efficiency-rate",
     title: "Efficiency Rate",
-    value: "88%",
+    value: `${avgEfficiency}%`,
     change: "+2%",
     changeType: "positive" as const,
     icon: "ri-speed-line",

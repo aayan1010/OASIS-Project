@@ -1,3 +1,8 @@
+import { assetLocations } from "./assets";
+import { alertRecords, activeAlertCount } from "./alerts";
+import { totalDailyProduction, avgEfficiency, totalDowntime, totalEnergyUsed } from "./production";
+import { openWorkOrders, totalMaintenanceCost, totalDowntimeHours } from "./maintenance";
+
 export const navigationItems = [
   { id: "home", label: "Overview", path: "/", icon: "ri-dashboard-3-line" },
   { id: "performance", label: "Performance", path: "/pages/performance", icon: "ri-line-chart-line" },
@@ -6,11 +11,17 @@ export const navigationItems = [
   { id: "maintenance", label: "Maintenance", path: "/pages/maintenance", icon: "ri-tools-line" },
 ];
 
+const avgHealth = Math.round(
+  assetLocations.reduce((s, a) => s + (a.healthScore ?? 0), 0) / assetLocations.length * 10
+) / 10;
+
+const criticalAssets = assetLocations.filter((a) => (a.healthScore ?? 100) < 60 || a.status === "offline").length;
+
 export const dashboardKpiData = [
   {
     id: "active-alerts",
     title: "Total Active Alerts",
-    value: 24,
+    value: activeAlertCount,
     change: "+3",
     changeType: "negative" as const,
     icon: "ri-alarm-warning-line",
@@ -20,7 +31,7 @@ export const dashboardKpiData = [
   {
     id: "system-health",
     title: "System Health",
-    value: "94.2%",
+    value: `${avgHealth}%`,
     change: "+1.2%",
     changeType: "positive" as const,
     icon: "ri-heart-pulse-line",
@@ -30,7 +41,7 @@ export const dashboardKpiData = [
   {
     id: "production-rate",
     title: "Production Rate",
-    value: "12,450",
+    value: totalDailyProduction.toLocaleString(),
     unit: "bbl/day",
     change: "+2.1%",
     changeType: "positive" as const,
@@ -41,7 +52,7 @@ export const dashboardKpiData = [
   {
     id: "maintenance-backlog",
     title: "Maintenance Backlog",
-    value: 18,
+    value: openWorkOrders,
     change: "-2",
     changeType: "positive" as const,
     icon: "ri-calendar-check-line",
@@ -50,9 +61,9 @@ export const dashboardKpiData = [
   },
   {
     id: "energy-output",
-    title: "Gas Production",
-    value: "485",
-    unit: "MMcf/d",
+    title: "Energy Output",
+    value: totalEnergyUsed.toLocaleString(),
+    unit: "kWh/d",
     change: "+2.7%",
     changeType: "positive" as const,
     icon: "ri-fire-line",
@@ -62,7 +73,7 @@ export const dashboardKpiData = [
   {
     id: "safety-incidents",
     title: "Safety Incidents (MTD)",
-    value: 2,
+    value: alertRecords.filter((a) => a.status === "active" && a.severity === "high").length,
     change: "0",
     changeType: "neutral" as const,
     icon: "ri-first-aid-kit-line",
@@ -72,7 +83,7 @@ export const dashboardKpiData = [
   {
     id: "downtime",
     title: "Downtime Hours",
-    value: "4.5",
+    value: String(totalDowntime),
     unit: "hrs",
     change: "-1.2",
     changeType: "positive" as const,
@@ -101,88 +112,54 @@ export const quickActions = [
   { id: "request-material", label: "Request Material", icon: "ri-shopping-cart-line", color: "primary" },
 ];
 
-export const recentAlerts = [
-  {
-    id: "alert-1",
-    title: "Pump Station 3 - Pressure Drop",
-    severity: "high",
-    module: "Production",
-    time: "2 min ago",
-    status: "active",
-  },
-  {
-    id: "alert-2",
-    title: "Compressor Station 2 - Vibration Anomaly",
-    severity: "medium",
-    module: "Assets",
-    time: "12 min ago",
-    status: "active",
-  },
-  {
-    id: "alert-3",
-    title: "Wellhead C4 - Casing Pressure Spike",
-    severity: "high",
-    module: "Maintenance",
-    time: "28 min ago",
-    status: "active",
-  },
-  {
-    id: "alert-4",
-    title: "Chemical Storage - Level Low",
-    severity: "medium",
-    module: "Logistics",
-    time: "45 min ago",
-    status: "active",
-  },
-  {
-    id: "alert-5",
-    title: "Pipeline Section 12 - Flow Rate Anomaly",
-    severity: "low",
-    module: "Production",
-    time: "1 hr ago",
-    status: "acknowledged",
-  },
-];
+export const recentAlerts = alertRecords.slice(0, 5).map((a) => ({
+  id: a.id,
+  title: `${a.alertType} — ${a.assetId}`,
+  severity: a.severity,
+  module: "Assets",
+  time: a.timestamp.slice(5, 10).replace("-", "/"),
+  status: a.status,
+}));
 
 export const sectorOverview = [
   {
     id: "upstream",
     name: "Upstream (E&P)",
     active: true,
-    sites: 12,
-    assets: 198,
-    health: 91,
-    production: "8,420 bbl/day",
-    alerts: 8,
+    sites: 3,
+    assets: assetLocations.filter((a) => ["SITE-001", "SITE-003", "SITE-006"].includes(a.siteId ?? "")).length,
+    health: Math.round(assetLocations.filter((a) => ["SITE-001", "SITE-003", "SITE-006"].includes(a.siteId ?? "")).reduce((s, a) => s + (a.healthScore ?? 0), 0) / Math.max(1, assetLocations.filter((a) => ["SITE-001", "SITE-003", "SITE-006"].includes(a.siteId ?? "")).length)),
+    production: `${Math.round(totalDailyProduction * 0.6).toLocaleString()} bbl/day`,
+    alerts: alertRecords.filter((a) => ["SITE-001", "SITE-003", "SITE-006"].includes(assetLocations.find((al) => al.id === a.assetId)?.siteId ?? "")).length,
   },
   {
     id: "midstream",
     name: "Midstream",
     active: true,
-    sites: 6,
-    assets: 87,
-    health: 94,
-    production: "485 MMcf/d",
-    alerts: 4,
+    sites: 3,
+    assets: assetLocations.filter((a) => ["SITE-002", "SITE-004", "SITE-008"].includes(a.siteId ?? "")).length,
+    health: Math.round(assetLocations.filter((a) => ["SITE-002", "SITE-004", "SITE-008"].includes(a.siteId ?? "")).reduce((s, a) => s + (a.healthScore ?? 0), 0) / Math.max(1, assetLocations.filter((a) => ["SITE-002", "SITE-004", "SITE-008"].includes(a.siteId ?? "")).length)),
+    production: `${Math.round(totalDailyProduction * 0.3).toLocaleString()} bbl/day`,
+    alerts: alertRecords.filter((a) => ["SITE-002", "SITE-004", "SITE-008"].includes(assetLocations.find((al) => al.id === a.assetId)?.siteId ?? "")).length,
   },
   {
     id: "downstream",
     name: "Downstream",
     active: true,
-    sites: 2,
-    assets: 56,
-    health: 97,
-    production: "52,000 bbl/day",
-    alerts: 3,
+    sites: 1,
+    assets: assetLocations.filter((a) => a.siteId === "SITE-005").length,
+    health: Math.round(assetLocations.filter((a) => a.siteId === "SITE-005").reduce((s, a) => s + (a.healthScore ?? 0), 0) / Math.max(1, assetLocations.filter((a) => a.siteId === "SITE-005").length)),
+    production: `${Math.round(totalDailyProduction * 0.08).toLocaleString()} bbl/day`,
+    alerts: alertRecords.filter((a) => assetLocations.find((al) => al.id === a.assetId)?.siteId === "SITE-005").length,
   },
   {
     id: "gas-processing",
     name: "Gas Processing",
     active: true,
-    sites: 3,
-    assets: 42,
-    health: 88,
-    production: "210 MMcf/d",
-    alerts: 5,
+    sites: 1,
+    assets: assetLocations.filter((a) => a.siteId === "SITE-007").length,
+    health: Math.round(assetLocations.filter((a) => a.siteId === "SITE-007").reduce((s, a) => s + (a.healthScore ?? 0), 0) / Math.max(1, assetLocations.filter((a) => a.siteId === "SITE-007").length)),
+    production: `${Math.round(totalDailyProduction * 0.02).toLocaleString()} bbl/day`,
+    alerts: alertRecords.filter((a) => assetLocations.find((al) => al.id === a.assetId)?.siteId === "SITE-007").length,
   },
 ];

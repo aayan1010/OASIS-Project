@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import KpiCard from "./KpiCard";
+import type { AlertThreshold } from "./ThresholdSettings";
 
 interface ViewToggleOption {
   id: string;
@@ -27,11 +28,13 @@ interface KpiData {
   icon: string;
   color?: "primary" | "accent" | "secondary";
   pinned?: boolean;
+  thresholds?: AlertThreshold;
 }
 
 interface TopOverviewProps {
   kpis: KpiData[];
   onTogglePin?: (id: string) => void;
+  onThresholdsChange?: (id: string, t: AlertThreshold) => void;
   quickActions?: QuickAction[];
   viewToggle?: {
     options: ViewToggleOption[];
@@ -46,6 +49,7 @@ interface TopOverviewProps {
 export default function TopOverview({
   kpis,
   onTogglePin,
+  onThresholdsChange,
   quickActions,
   viewToggle,
   children,
@@ -91,6 +95,12 @@ export default function TopOverview({
                 color={kpi.color}
                 pinned={kpi.pinned}
                 onTogglePin={() => onTogglePin?.(kpi.id)}
+                thresholds={kpi.thresholds}
+                onThresholdsChange={
+                  onThresholdsChange
+                    ? (t) => onThresholdsChange(kpi.id, t)
+                    : undefined
+                }
               />
             ))}
           </div>

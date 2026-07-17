@@ -1,7 +1,129 @@
+"use client";
+
+import TopOverview from "../../components/feature/TopOverview";
+import { useState } from "react";
+import GISMapView from "../../pages/assets/components/GISMapView";
+import ShipmentTracker from "../../pages/logistics/components/ShipmentTracker";
+import SupplyChainHealth from "../../pages/logistics/components/SupplyChainHealth";
+import InventoryStatus from "../../pages/logistics/components/InventoryStatus";
+import WarehouseUtilization from "../../pages/logistics/components/WarehouseUtilization";
+import { assetLocations } from "../../mocks/assets";
+import { sites } from "../../mocks/sites";
+import { activeAlertCount } from "../../mocks/alerts";
+
+const sitesKpis = [
+  {
+    id: "total-assets",
+    title: "Total Assets",
+    value: assetLocations.length,
+    change: "+4",
+    changeType: "neutral" as const,
+    icon: "ri-server-line",
+    color: "secondary" as const,
+    pinned: true,
+  },
+  {
+    id: "active-sites",
+    title: "Active Sites",
+    value: sites.filter((s) => s.status === "Active").length,
+    change: "0",
+    changeType: "neutral" as const,
+    icon: "ri-building-line",
+    color: "primary" as const,
+    pinned: true,
+  },
+  {
+    id: "avg-health",
+    title: "Avg Asset Health",
+    value: `${Math.round(assetLocations.reduce((s, a) => s + (a.healthScore ?? 0), 0) / assetLocations.length)}%`,
+    change: "+1.5%",
+    changeType: "positive" as const,
+    icon: "ri-heart-pulse-line",
+    color: "primary" as const,
+    pinned: true,
+  },
+  {
+    id: "offline-assets",
+    title: "Offline / Warning",
+    value: assetLocations.filter((a) => a.status === "offline" || a.status === "degraded").length,
+    change: "+1",
+    changeType: "negative" as const,
+    icon: "ri-alarm-warning-line",
+    color: "accent" as const,
+    pinned: true,
+  },
+  {
+    id: "active-alerts",
+    title: "Active Alerts",
+    value: activeAlertCount,
+    change: "+3",
+    changeType: "negative" as const,
+    icon: "ri-alarm-warning-line",
+    color: "accent" as const,
+    pinned: false,
+  },
+  {
+    id: "telemetry-channels",
+    title: "Under Maintenance",
+    value: assetLocations.filter((a) => a.status === "maintenance").length,
+    change: "0",
+    changeType: "neutral" as const,
+    icon: "ri-tools-line",
+    color: "primary" as const,
+    pinned: false,
+  },
+];
+
+const sitesActions = [
+  { id: "add-asset", label: "Add Asset", icon: "ri-add-circle-line", color: "primary" as const },
+  { id: "run-diagnostic", label: "Run Diagnostic", icon: "ri-stethoscope-line", color: "primary" as const },
+  { id: "create-shipment", label: "Create Shipment", icon: "ri-truck-line", color: "primary" as const },
+  { id: "export-registry", label: "Export Registry", icon: "ri-download-line", color: "secondary" as const },
+];
+
 export default function SitesPage() {
-    return (
-        <div className="px-6 py-6 min-h-full">
-            <h1>Sites</h1>
-        </div>
+  const [kpis, setKpis] = useState(sitesKpis);
+  const [viewMode, setViewMode] = useState("map");
+
+  const handleTogglePin = (id: string) => {
+    setKpis((prev) =>
+      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
     );
+  };
+
+  return (
+    <>
+      <TopOverview
+        title="Sites"
+        subtitle="Asset GIS tracking, telemetry monitoring, supply chain, and inventory management"
+        kpis={kpis}
+        onTogglePin={handleTogglePin}
+        quickActions={sitesActions.map((a) => ({
+          ...a,
+          onClick: () => console.log(a.id),
+        }))}
+        viewToggle={{
+          options: [
+            { id: "map", label: "GIS Map", icon: "ri-map-2-line" },
+            { id: "supply-chain", label: "Supply Chain & Inventory", icon: "ri-truck-line" },
+          ],
+          activeView: viewMode,
+          onChange: setViewMode,
+        }}
+      />
+
+      <div className="px-6 py-6">
+        {viewMode === "map" ? (
+          <GISMapView />
+        ) : (
+          <div className="space-y-4">
+            <ShipmentTracker />
+            <SupplyChainHealth />
+            <InventoryStatus />
+            <WarehouseUtilization />
+          </div>
+        )}
+      </div>
+    </>
+  );
 }
