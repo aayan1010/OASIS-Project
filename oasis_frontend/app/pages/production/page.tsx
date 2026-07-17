@@ -6,7 +6,7 @@ import ProductionChart from "./components/ProductionChart";
 import ThroughputCards from "./components/ThroughputCards";
 import YieldComparison from "./components/YieldComparison";
 import DowntimeLog from "./components/DowntimeLog";
-import { scheduleAdherence, totalDailyProduction, avgEfficiency, totalDowntime } from "../../../mocks/production";
+import { scheduleAdherence, totalDailyProduction, avgEfficiency, totalDowntime } from "../../mocks/production";
 
 const productionKpis = [
   {
