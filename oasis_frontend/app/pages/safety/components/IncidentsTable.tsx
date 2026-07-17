@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { safetyIncidents } from "../../../mocks/safety";
 

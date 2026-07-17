@@ -1,3 +1,5 @@
+"use client";
+
 import { telemetryStreams, sectorColors, type TelemetrySensor, getRecentSeries } from "../../../mocks/assets";
 import { useState, useEffect, useMemo, useCallback } from "react";
 

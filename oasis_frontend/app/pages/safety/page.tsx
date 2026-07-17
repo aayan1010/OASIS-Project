@@ -1,3 +1,5 @@
+"use client";
+
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
 import IncidentTrendChart from "./components/IncidentTrendChart";
