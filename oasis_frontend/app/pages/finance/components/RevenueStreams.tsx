@@ -1,19 +1,25 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { monthlyBudget } from "../../../mocks/finance";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { monthlyRevenueData } from "../../../mocks/finance";
 
-export default function BudgetChart() {
+export default function RevenueStreams() {
+  const totalRevenue = monthlyRevenueData[monthlyRevenueData.length - 1];
+  const total = totalRevenue ? totalRevenue.oil + totalRevenue.gas + totalRevenue.ngl + totalRevenue.condensate : 0;
+
   return (
     <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-heading font-semibold text-foreground-900">Budget vs Actual (Monthly)</h3>
-        <div className="flex items-center gap-3 text-xs text-foreground-500">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-secondary-500"></span> Budget</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary-500"></span> Actual</span>
-        </div>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-sm font-heading font-semibold text-foreground-900">Revenue Streams</h3>
+        <span className="text-xs text-foreground-400">Jun total: ${(total / 1000000).toFixed(2)}M</span>
       </div>
-      <div className="h-[250px]">
+      <div className="flex items-center gap-4 text-xs text-foreground-500 mb-4">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-secondary-500"></span> Oil</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Gas</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary-500"></span> NGL</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400"></span> Condensate</span>
+      </div>
+      <div className="h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={monthlyBudget} barGap={6} barCategoryGap="20%">
+          <AreaChart data={monthlyRevenueData}>
             <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--foreground-200)/0.2)" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v / 1000000).toFixed(1)}M`} />
@@ -26,10 +32,11 @@ export default function BudgetChart() {
               }}
               formatter={(value: number) => `$${(value / 1000).toFixed(0)}K`}
             />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
-            <Bar dataKey="budget" name="Budget" fill="oklch(var(--secondary-400)/0.7)" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="actual" name="Actual" fill="oklch(var(--primary-500))" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            <Area type="monotone" dataKey="oil" stroke="oklch(var(--secondary-500))" fill="oklch(var(--secondary-500)/0.1)" strokeWidth={2} />
+            <Area type="monotone" dataKey="gas" stroke="#f59e0b" fill="#f59e0b15" strokeWidth={2} />
+            <Area type="monotone" dataKey="ngl" stroke="oklch(var(--primary-500))" fill="oklch(var(--primary-500)/0.1)" strokeWidth={2} />
+            <Area type="monotone" dataKey="condensate" stroke="#34d399" fill="#34d39915" strokeWidth={2} />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>
