@@ -140,8 +140,9 @@ export default function MaintenanceCalendar() {
               );
             }
 
-            const cellEvents = getEventsForDate(cell.dateStr);
-            const isToday = cell.dateStr === todayStr;
+            const safeDateStr = cell.dateStr ?? "";
+            const cellEvents = getEventsForDate(safeDateStr);
+            const isToday = safeDateStr === todayStr;
 
             return (
               <div
