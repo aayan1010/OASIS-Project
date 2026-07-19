@@ -2,7 +2,6 @@
 
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
-import GISMapView from "../../pages/assets/components/GISMapView";
 import ShipmentTracker from "../../pages/logistics/components/ShipmentTracker";
 import SupplyChainHealth from "../../pages/logistics/components/SupplyChainHealth";
 import InventoryStatus from "../../pages/logistics/components/InventoryStatus";
@@ -10,6 +9,11 @@ import WarehouseUtilization from "../../pages/logistics/components/WarehouseUtil
 import { assetLocations } from "../../mocks/assets";
 import { sites } from "../../mocks/sites";
 import { activeAlertCount } from "../../mocks/alerts";
+import dynamic from "next/dynamic";
+
+const GISMapView = dynamic(() => import("../../pages/assets/components/GISMapView"), {
+  ssr: false
+});
 
 const sitesKpis = [
   {
@@ -71,7 +75,7 @@ const sitesKpis = [
     icon: "ri-tools-line",
     color: "primary" as const,
     pinned: false,
-  },
+  }
 ];
 
 const sitesActions = [
@@ -111,7 +115,6 @@ export default function SitesPage() {
           onChange: setViewMode,
         }}
       />
-
       <div className="px-6 py-6">
         {viewMode === "map" ? (
           <GISMapView />
