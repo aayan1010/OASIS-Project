@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DashboardLayout from "../../components/feature/DashboardLayout";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
 import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
@@ -24,6 +23,8 @@ const defaultThresholds: Record<string, AlertThreshold> = {
 
 const kpisWithThresholds = dashboardKpiData.map((kpi) => ({
   ...kpi,
+  // Explicitly assert the color to satisfy the KpiData type requirement
+  color: kpi.color as "accent" | "primary" | "secondary" | undefined,
   thresholds: defaultThresholds[kpi.id] || { warning: 0, critical: 0, direction: "below" as const, enabled: false },
 }));
 
