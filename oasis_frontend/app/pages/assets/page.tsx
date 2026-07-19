@@ -1,10 +1,13 @@
 "use client";
 
-import DashboardLayout from "../../components/feature/DashboardLayout";
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
-import GISMapView from "./components/GISMapView";
 import TelemetryTicker from "./components/TelemetryTicker";
+import dynamic from "next/dynamic";
+
+const GISMapView = dynamic(() => import("./components/GISMapView"), { 
+  ssr: false 
+});
 
 const assetKpis = [
   {
@@ -66,7 +69,7 @@ const assetKpis = [
     icon: "ri-hourglass-line",
     color: "accent" as const,
     pinned: false,
-  },
+  }
 ];
 
 const assetActions = [
@@ -105,7 +108,6 @@ export default function AssetsPage() {
           onChange: setViewMode,
         }}
       />
-
       <div className="px-6 py-6">
         {viewMode === "map" ? <GISMapView /> : <TelemetryTicker />}
       </div>
