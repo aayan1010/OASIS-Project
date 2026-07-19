@@ -30,7 +30,8 @@ export default function OpexBreakdown() {
                   borderRadius: "8px",
                   fontSize: "13px",
                 }}
-                formatter={(value: number) => `$${(value / 1000).toFixed(0)}K`}
+                // Cast to any to satisfy Recharts, cast to Number to satisfy the math
+                formatter={(value: any) => `$${(Number(value ?? 0) / 1000).toFixed(0)}K`}
               />
             </PieChart>
           </ResponsiveContainer>
