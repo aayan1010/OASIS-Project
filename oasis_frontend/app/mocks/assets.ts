@@ -314,7 +314,7 @@ export function getTrend(sensorIndex: number) {
 }
 
 export function getRecentSeries(sensorIndex: number, count = 24): number[] {
-  return ast0001TimeSeries.slice(-count).map((r) => r[sensorIndex]);
+  return ast0001TimeSeries.slice(-count).map((r) => Number(r[sensorIndex] ?? 0));
 }
 
 function generateTelemetry(): TelemetrySensor[] {
