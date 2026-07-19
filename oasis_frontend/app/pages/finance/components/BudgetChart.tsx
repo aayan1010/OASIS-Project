@@ -16,7 +16,13 @@ export default function BudgetChart() {
           <BarChart data={monthlyBudget} barGap={6} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--foreground-200)/0.2)" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v / 1000000).toFixed(1)}M`} />
+            <YAxis 
+              tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} 
+              axisLine={false} 
+              tickLine={false} 
+              // Cast to any to satisfy Recharts, cast to Number to satisfy the math
+              tickFormatter={(v: any) => `$${(Number(v ?? 0) / 1000000).toFixed(1)}M`} 
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: "oklch(var(--background-50))",
@@ -24,7 +30,8 @@ export default function BudgetChart() {
                 borderRadius: "8px",
                 fontSize: "13px",
               }}
-              formatter={(value: number) => `$${(value / 1000).toFixed(0)}K`}
+              // Cast to any to satisfy Recharts, cast to Number to satisfy the math
+              formatter={(value: any) => `$${(Number(value ?? 0) / 1000).toFixed(0)}K`}
             />
             <Legend wrapperStyle={{ fontSize: "12px" }} />
             <Bar dataKey="budget" name="Budget" fill="oklch(var(--secondary-400)/0.7)" radius={[4, 4, 0, 0]} />
