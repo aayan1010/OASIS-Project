@@ -22,7 +22,13 @@ export default function RevenueStreams() {
           <AreaChart data={monthlyRevenueData}>
             <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--foreground-200)/0.2)" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v / 1000000).toFixed(1)}M`} />
+            <YAxis 
+              tick={{ fontSize: 11, fill: "oklch(var(--foreground-500))" }} 
+              axisLine={false} 
+              tickLine={false} 
+              // Cast to any to satisfy Recharts, cast to Number to satisfy the math
+              tickFormatter={(v: any) => `$${(Number(v ?? 0) / 1000000).toFixed(1)}M`} 
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: "oklch(var(--background-50))",
@@ -30,7 +36,8 @@ export default function RevenueStreams() {
                 borderRadius: "8px",
                 fontSize: "13px",
               }}
-              formatter={(value: number) => `$${(value / 1000).toFixed(0)}K`}
+              // Cast to any to satisfy Recharts, cast to Number to satisfy the math
+              formatter={(value: any) => `$${(Number(value ?? 0) / 1000).toFixed(0)}K`}
             />
             <Area type="monotone" dataKey="oil" stroke="oklch(var(--secondary-500))" fill="oklch(var(--secondary-500)/0.1)" strokeWidth={2} />
             <Area type="monotone" dataKey="gas" stroke="#f59e0b" fill="#f59e0b15" strokeWidth={2} />
