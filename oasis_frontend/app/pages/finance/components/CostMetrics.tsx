@@ -23,10 +23,15 @@ export default function CostMetrics() {
             </thead>
             <tbody>
               {costPerUnit.map((cpu) => {
-                const cost = "liftingCost" in cpu ? cpu.liftingCost : cpu.opsCost;
-                const target = cpu.target;
-                const variance = ((cost - target) / target) * 100;
+                // Extract raw values and safely cast to Number
+                const rawCost = "liftingCost" in cpu ? cpu.liftingCost : cpu.opsCost;
+                const cost = Number(rawCost ?? 0);
+                const target = Number(cpu.target ?? 0);
+                
+                // Safely calculate variance, avoiding division by zero
+                const variance = target === 0 ? 0 : ((cost - target) / target) * 100;
                 const overBudget = variance > 0;
+                
                 return (
                   <tr key={cpu.asset} className="border-b border-background-100 hover:bg-background-100/50 transition-colors">
                     <td className="py-3 text-foreground-700 font-medium">{cpu.asset}</td>
