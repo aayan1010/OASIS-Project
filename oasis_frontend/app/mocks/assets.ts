@@ -302,8 +302,8 @@ export function getTrend(sensorIndex: number) {
   if (ast0001TimeSeries.length < 2) return { direction: "stable" as const, pct: "0.0%" };
   const prev = ast0001TimeSeries[ast0001TimeSeries.length - 2];
   const curr = ast0001TimeSeries[ast0001TimeSeries.length - 1];
-  const prevVal = prev[sensorIndex];
-  const currVal = curr[sensorIndex];
+  const prevVal = Number(prev[sensorIndex] ?? 0);
+  const currVal = Number(curr[sensorIndex] ?? 0);
   const diff = currVal - prevVal;
   const pct = prevVal === 0 ? 0 : (diff / prevVal) * 100;
   const direction = Math.abs(pct) < 0.5 ? "stable" : pct > 0 ? "up" : "down";
