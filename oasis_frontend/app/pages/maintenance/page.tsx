@@ -72,7 +72,6 @@ const maintenanceKpis = [
 const maintenanceActions = [
   { id: "create-wo", label: "Create Work Order", icon: "ri-file-add-line", color: "primary" as const },
   { id: "schedule-pm", label: "Schedule PM", icon: "ri-calendar-line", color: "primary" as const },
-  { id: "request-parts", label: "Request Parts", icon: "ri-shopping-cart-line", color: "secondary" as const },
 ];
 
 export default function MaintenancePage() {

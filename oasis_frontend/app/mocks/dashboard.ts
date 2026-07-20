@@ -109,7 +109,6 @@ export const quickActions = [
   { id: "export-report", label: "Export Report", icon: "ri-download-line", color: "secondary" },
   { id: "schedule-inspection", label: "Schedule Inspection", icon: "ri-calendar-line", color: "primary" },
   { id: "view-telemetry", label: "View Telemetry", icon: "ri-radar-line", color: "secondary" },
-  { id: "request-material", label: "Request Material", icon: "ri-shopping-cart-line", color: "primary" },
 ];
 
 export const recentAlerts = alertRecords.slice(0, 5).map((a) => ({
