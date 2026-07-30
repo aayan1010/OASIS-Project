@@ -1,11 +1,15 @@
-"use client";
+"use client"; 
 
-import TopOverview from "../../components/feature/TopOverview";
-import { useState } from "react";
-import GISMapView from "./components/GISMapView";
-import TelemetryTicker from "./components/TelemetryTicker";
-import ExportReportModal from "../../pages/overview/components/ExportReportModal";
+import TopOverview from "../../components/feature/TopOverview"; 
+import { useState } from "react"; 
+import dynamic from "next/dynamic"; // 1. Add this import
+import TelemetryTicker from "./components/TelemetryTicker"; 
+import ExportReportModal from "../../pages/overview/components/ExportReportModal"; 
 
+// 2. Replace the static import with this dynamic one:
+const GISMapView = dynamic(() => import("./components/GISMapView"), { 
+  ssr: false,
+});
 
 const assetKpis = [
   {
