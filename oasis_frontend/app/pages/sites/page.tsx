@@ -3,7 +3,10 @@
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import GISMapView from "../../pages/assets/components/GISMapView";
+import dynamic from "next/dynamic"; 
+const GISMapView = dynamic(() => import("../../pages/assets/components/GISMapView"), { 
+  ssr: false,
+});
 import ShipmentTracker from "../../pages/logistics/components/ShipmentTracker";
 import SupplyChainHealth from "../../pages/logistics/components/SupplyChainHealth";
 import InventoryStatus from "../../pages/logistics/components/InventoryStatus";
