@@ -6,6 +6,7 @@ import BudgetChart from "./components/BudgetChart";
 import OpexBreakdown from "./components/OpexBreakdown";
 import RevenueStreams from "./components/RevenueStreams";
 import CostMetrics from "./components/CostMetrics";
+import ExportReportModal from "../../pages/overview/components/ExportReportModal";
 import { revenueStreams } from "../../mocks/finance";
 
 const financeKpis = [
@@ -80,11 +81,24 @@ const financeActions = [
 export default function FinancePage() {
   const [kpis, setKpis] = useState(financeKpis);
   const [viewMode, setViewMode] = useState("budget");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setKpis((prev) =>
       prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
     );
+  };
+
+  const handleAction = (actionId: string) => {
+    switch (actionId) {
+      case "create-report":
+        break;
+      case "view-budget":
+        break;
+      case "export-data":
+        setExportModalOpen(true);
+        break;
+    }
   };
 
   return (
@@ -96,7 +110,7 @@ export default function FinancePage() {
         onTogglePin={handleTogglePin}
         quickActions={financeActions.map((a) => ({
           ...a,
-          onClick: () => console.log(a.id),
+          onClick: () => handleAction(a.id),
         }))}
         viewToggle={{
           options: [
@@ -134,6 +148,8 @@ export default function FinancePage() {
           </div>
         )}
       </div>
+
+      <ExportReportModal open={exportModalOpen} onClose={() => setExportModalOpen(false)} />
     </>
   );
 }

@@ -2,12 +2,10 @@
 
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
+import GISMapView from "./components/GISMapView";
 import TelemetryTicker from "./components/TelemetryTicker";
-import dynamic from "next/dynamic";
+import ExportReportModal from "../../pages/overview/components/ExportReportModal";
 
-const GISMapView = dynamic(() => import("./components/GISMapView"), { 
-  ssr: false 
-});
 
 const assetKpis = [
   {
@@ -69,7 +67,7 @@ const assetKpis = [
     icon: "ri-hourglass-line",
     color: "accent" as const,
     pinned: false,
-  }
+  },
 ];
 
 const assetActions = [
@@ -81,11 +79,24 @@ const assetActions = [
 export default function AssetsPage() {
   const [kpis, setKpis] = useState(assetKpis);
   const [viewMode, setViewMode] = useState("map");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setKpis((prev) =>
       prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
     );
+  };
+
+  const handleAction = (actionId: string) => {
+    switch (actionId) {
+      case "add-asset":
+        break;
+      case "run-diagnostic":
+        break;
+      case "export-registry":
+        setExportModalOpen(true);
+        break;
+    }
   };
 
   return (
@@ -97,7 +108,7 @@ export default function AssetsPage() {
         onTogglePin={handleTogglePin}
         quickActions={assetActions.map((a) => ({
           ...a,
-          onClick: () => console.log(a.id),
+          onClick: () => handleAction(a.id),
         }))}
         viewToggle={{
           options: [
@@ -108,9 +119,12 @@ export default function AssetsPage() {
           onChange: setViewMode,
         }}
       />
+
       <div className="px-6 py-6">
         {viewMode === "map" ? <GISMapView /> : <TelemetryTicker />}
       </div>
+
+      <ExportReportModal open={exportModalOpen} onClose={() => setExportModalOpen(false)} />
     </>
   );
 }

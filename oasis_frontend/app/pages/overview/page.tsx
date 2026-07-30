@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
 import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
@@ -9,6 +10,8 @@ import { recentAlerts } from "../../mocks/alerts";
 import { assetLocations } from "../../mocks/assets";
 import { sites } from "../../mocks/sites";
 import { workOrders } from "../../mocks/maintenance";
+import ReportIncidentModal from "./components/ReportIncidentModal";
+import ExportReportModal from "./components/ExportReportModal";
 
 const defaultThresholds: Record<string, AlertThreshold> = {
   "active-alerts": { warning: 15, critical: 20, direction: "above", enabled: true },
@@ -23,14 +26,15 @@ const defaultThresholds: Record<string, AlertThreshold> = {
 
 const kpisWithThresholds = dashboardKpiData.map((kpi) => ({
   ...kpi,
-  // Explicitly assert the color to satisfy the KpiData type requirement
-  color: kpi.color as "accent" | "primary" | "secondary" | undefined,
   thresholds: defaultThresholds[kpi.id] || { warning: 0, critical: 0, direction: "below" as const, enabled: false },
 }));
 
 export default function Home() {
+  const router = useRouter();
   const [kpis, setKpis] = useState(kpisWithThresholds);
   const [activeSector, setActiveSector] = useState("upstream");
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const { breachAlerts, syncPageKpis, clearPageKpis } = useThresholdAlerts();
 
   useEffect(() => {
@@ -51,7 +55,25 @@ export default function Home() {
   };
 
   const handleQuickAction = (id: string) => {
-    console.log("Quick action:", id);
+    switch (id) {
+      case "create-work-order":
+        router.push("/pages/maintenance");
+        break;
+      case "report-incident":
+        setShowReportModal(true);
+        break;
+      case "export-report":
+        setShowExportModal(true);
+        break;
+      case "schedule-inspection":
+        router.push("/pages/maintenance");
+        break;
+      case "view-telemetry":
+        router.push("/pages/performance");
+        break;
+      default:
+        break;
+    }
   };
 
   const allAlerts = [...breachAlerts, ...recentAlerts];
@@ -66,7 +88,6 @@ export default function Home() {
         onThresholdsChange={handleThresholdsChange}
         quickActions={quickActions.map((a) => ({
           ...a,
-          color: a.color as "accent" | "primary" | "secondary" | undefined,
           onClick: () => handleQuickAction(a.id),
         }))}
       />
@@ -324,6 +345,15 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <ReportIncidentModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      />
+      <ExportReportModal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
     </>
   );
 }

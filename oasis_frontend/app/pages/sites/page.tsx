@@ -2,18 +2,18 @@
 
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import GISMapView from "../../pages/assets/components/GISMapView";
 import ShipmentTracker from "../../pages/logistics/components/ShipmentTracker";
 import SupplyChainHealth from "../../pages/logistics/components/SupplyChainHealth";
 import InventoryStatus from "../../pages/logistics/components/InventoryStatus";
 import WarehouseUtilization from "../../pages/logistics/components/WarehouseUtilization";
+import ExportReportModal from "../../pages/overview/components/ExportReportModal";
+import RunDiagnosticModal from "../../pages/sites/components/RunDiagnosticModal";
+import CreateShipmentModal from "../../pages/sites/components/CreateShipmentModal";
 import { assetLocations } from "../../mocks/assets";
 import { sites } from "../../mocks/sites";
 import { activeAlertCount } from "../../mocks/alerts";
-import dynamic from "next/dynamic";
-
-const GISMapView = dynamic(() => import("../../pages/assets/components/GISMapView"), {
-  ssr: false
-});
 
 const sitesKpis = [
   {
@@ -75,7 +75,7 @@ const sitesKpis = [
     icon: "ri-tools-line",
     color: "primary" as const,
     pinned: false,
-  }
+  },
 ];
 
 const sitesActions = [
@@ -86,13 +86,34 @@ const sitesActions = [
 ];
 
 export default function SitesPage() {
+  const router = useRouter();
   const [kpis, setKpis] = useState(sitesKpis);
   const [viewMode, setViewMode] = useState("map");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [diagnosticModalOpen, setDiagnosticModalOpen] = useState(false);
+  const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setKpis((prev) =>
       prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
     );
+  };
+
+  const handleAction = (actionId: string) => {
+    switch (actionId) {
+      case "add-asset":
+        router.push("/assets");
+        break;
+      case "run-diagnostic":
+        setDiagnosticModalOpen(true);
+        break;
+      case "create-shipment":
+        setShipmentModalOpen(true);
+        break;
+      case "export-registry":
+        setExportModalOpen(true);
+        break;
+    }
   };
 
   return (
@@ -104,7 +125,7 @@ export default function SitesPage() {
         onTogglePin={handleTogglePin}
         quickActions={sitesActions.map((a) => ({
           ...a,
-          onClick: () => console.log(a.id),
+          onClick: () => handleAction(a.id),
         }))}
         viewToggle={{
           options: [
@@ -115,6 +136,7 @@ export default function SitesPage() {
           onChange: setViewMode,
         }}
       />
+
       <div className="px-6 py-6">
         {viewMode === "map" ? (
           <GISMapView />
@@ -127,6 +149,10 @@ export default function SitesPage() {
           </div>
         )}
       </div>
+
+      <ExportReportModal open={exportModalOpen} onClose={() => setExportModalOpen(false)} />
+      <RunDiagnosticModal open={diagnosticModalOpen} onClose={() => setDiagnosticModalOpen(false)} />
+      <CreateShipmentModal open={shipmentModalOpen} onClose={() => setShipmentModalOpen(false)} />
     </>
   );
 }

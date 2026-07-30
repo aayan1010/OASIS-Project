@@ -1,9 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
 import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
-import { useState, useEffect } from "react";
 import ProductionChart from "../../pages/production/components/ProductionChart";
 import ThroughputCards from "../../pages/production/components/ThroughputCards";
 import YieldComparison from "../../pages/production/components/YieldComparison";
@@ -12,6 +12,10 @@ import BudgetChart from "../../pages/finance/components/BudgetChart";
 import OpexBreakdown from "../../pages/finance/components/OpexBreakdown";
 import RevenueStreams from "../../pages/finance/components/RevenueStreams";
 import CostMetrics from "../../pages/finance/components/CostMetrics";
+import UpdatePlanModal from "../../pages/performance/components/UpdatePlanModal";
+import LogOutputModal from "../../pages/performance/components/LogOutputModal";
+import CreateReportModal from "../../pages/performance/components/CreateReportModal";
+import ExportReportModal from "../../pages/overview/components/ExportReportModal";
 import { scheduleAdherence } from "../../mocks/production";
 import { revenueStreams } from "../../mocks/finance";
 
@@ -143,6 +147,10 @@ export default function PerformancePage() {
   const [kpis, setKpis] = useState<PerformanceKpi[]>(performanceKpis);
   const [viewMode, setViewMode] = useState("production");
   const { syncPageKpis, clearPageKpis } = useThresholdAlerts();
+  const [showUpdatePlan, setShowUpdatePlan] = useState(false);
+  const [showLogOutput, setShowLogOutput] = useState(false);
+  const [showCreateReport, setShowCreateReport] = useState(false);
+  const [showExportData, setShowExportData] = useState(false);
 
   useEffect(() => {
     syncPageKpis("performance", kpis);
@@ -161,6 +169,25 @@ export default function PerformancePage() {
     );
   };
 
+  const handleQuickAction = (id: string) => {
+    switch (id) {
+      case "update-plan":
+        setShowUpdatePlan(true);
+        break;
+      case "log-output":
+        setShowLogOutput(true);
+        break;
+      case "create-report":
+        setShowCreateReport(true);
+        break;
+      case "export-data":
+        setShowExportData(true);
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <>
       <TopOverview
@@ -171,7 +198,7 @@ export default function PerformancePage() {
         onThresholdsChange={handleThresholdsChange}
         quickActions={performanceActions.map((a) => ({
           ...a,
-          onClick: () => console.log(a.id),
+          onClick: () => handleQuickAction(a.id),
         }))}
         viewToggle={{
           options: [
@@ -253,6 +280,23 @@ export default function PerformancePage() {
           </div>
         )}
       </div>
+
+      <UpdatePlanModal
+        open={showUpdatePlan}
+        onClose={() => setShowUpdatePlan(false)}
+      />
+      <LogOutputModal
+        open={showLogOutput}
+        onClose={() => setShowLogOutput(false)}
+      />
+      <CreateReportModal
+        open={showCreateReport}
+        onClose={() => setShowCreateReport(false)}
+      />
+      <ExportReportModal
+        open={showExportData}
+        onClose={() => setShowExportData(false)}
+      />
     </>
   );
 }

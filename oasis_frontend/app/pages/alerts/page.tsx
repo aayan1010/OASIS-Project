@@ -1,9 +1,11 @@
 "use client";
 
-import DashboardLayout from "../../components/feature/DashboardLayout";
 import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
 import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
+import ReportIncidentModal from "../../pages/overview/components/ReportIncidentModal";
+import LogHazardModal from "../../pages/alerts/components/LogHazardModal";
+import ScheduleDrillModal from "../../pages/alerts/components/ScheduleDrillModal";
 import IncidentTrendChart from "../../pages/safety/components/IncidentTrendChart";
 import IncidentsTable from "../../pages/safety/components/IncidentsTable";
 import ComplianceGauge from "../../pages/safety/components/ComplianceGauge";
@@ -77,6 +79,9 @@ export default function AlertsPage() {
   ]);
   const [viewMode, setViewMode] = useState("incidents");
   const { breachAlerts } = useThresholdAlerts();
+  const [reportIncidentOpen, setReportIncidentOpen] = useState(false);
+  const [logHazardOpen, setLogHazardOpen] = useState(false);
+  const [scheduleDrillOpen, setScheduleDrillOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setKpis((prev) =>
@@ -92,9 +97,9 @@ export default function AlertsPage() {
         kpis={kpis}
         onTogglePin={handleTogglePin}
         quickActions={[
-          { id: "report-incident", label: "Report Incident", icon: "ri-alert-line", color: "accent" as const, onClick: () => {} },
-          { id: "log-hazard", label: "Log Hazard", icon: "ri-error-warning-line", color: "primary" as const, onClick: () => {} },
-          { id: "schedule-drill", label: "Schedule Drill", icon: "ri-calendar-line", color: "secondary" as const, onClick: () => {} },
+          { id: "report-incident", label: "Report Incident", icon: "ri-alert-line", color: "accent" as const, onClick: () => setReportIncidentOpen(true) },
+          { id: "log-hazard", label: "Log Hazard", icon: "ri-error-warning-line", color: "primary" as const, onClick: () => setLogHazardOpen(true) },
+          { id: "schedule-drill", label: "Schedule Drill", icon: "ri-calendar-line", color: "secondary" as const, onClick: () => setScheduleDrillOpen(true) },
         ]}
         viewToggle={{
           options: [
@@ -305,6 +310,10 @@ export default function AlertsPage() {
           </div>
         )}
       </div>
+
+      <ReportIncidentModal open={reportIncidentOpen} onClose={() => setReportIncidentOpen(false)} />
+      <LogHazardModal open={logHazardOpen} onClose={() => setLogHazardOpen(false)} />
+      <ScheduleDrillModal open={scheduleDrillOpen} onClose={() => setScheduleDrillOpen(false)} />
     </>
   );
 }

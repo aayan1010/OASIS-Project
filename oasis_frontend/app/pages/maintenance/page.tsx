@@ -4,6 +4,8 @@ import TopOverview from "../../components/feature/TopOverview";
 import { useState } from "react";
 import MaintenanceCalendar from "./components/MaintenanceCalendar";
 import KanbanBoard from "./components/KanbanBoard";
+import CreateWorkOrderModal from "./components/CreateWorkOrderModal";
+import SchedulePMModal from "./components/SchedulePMModal";
 import { openWorkOrders, inProgressWorkOrders, totalMaintenanceCost, totalDowntimeHours, overdueWorkOrders, workOrders } from "../../mocks/maintenance";
 
 const maintenanceKpis = [
@@ -77,11 +79,24 @@ const maintenanceActions = [
 export default function MaintenancePage() {
   const [kpis, setKpis] = useState(maintenanceKpis);
   const [viewMode, setViewMode] = useState("calendar");
+  const [workOrderModalOpen, setWorkOrderModalOpen] = useState(false);
+  const [pmModalOpen, setPmModalOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setKpis((prev) =>
       prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
     );
+  };
+
+  const handleAction = (actionId: string) => {
+    switch (actionId) {
+      case "create-wo":
+        setWorkOrderModalOpen(true);
+        break;
+      case "schedule-pm":
+        setPmModalOpen(true);
+        break;
+    }
   };
 
   return (
@@ -93,7 +108,7 @@ export default function MaintenancePage() {
         onTogglePin={handleTogglePin}
         quickActions={maintenanceActions.map((a) => ({
           ...a,
-          onClick: () => console.log(a.id),
+          onClick: () => handleAction(a.id),
         }))}
         viewToggle={{
           options: [
@@ -112,6 +127,8 @@ export default function MaintenancePage() {
           <KanbanBoard />
         )}
       </div>
+      <CreateWorkOrderModal open={workOrderModalOpen} onClose={() => setWorkOrderModalOpen(false)} />
+      <SchedulePMModal open={pmModalOpen} onClose={() => setPmModalOpen(false)} />
     </>
   );
 }
