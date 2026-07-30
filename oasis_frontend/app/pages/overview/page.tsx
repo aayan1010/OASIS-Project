@@ -89,6 +89,7 @@ export default function Home() {
         onThresholdsChange={handleThresholdsChange}
         quickActions={quickActions.map((a) => ({
           ...a,
+          color: a.color as "accent" | "primary" | "secondary" | undefined,
           onClick: () => handleQuickAction(a.id),
         }))}
       />
