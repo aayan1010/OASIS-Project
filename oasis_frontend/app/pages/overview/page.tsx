@@ -26,6 +26,7 @@ const defaultThresholds: Record<string, AlertThreshold> = {
 
 const kpisWithThresholds = dashboardKpiData.map((kpi) => ({
   ...kpi,
+  color: kpi.color as "accent" | "primary" | "secondary" | undefined, 
   thresholds: defaultThresholds[kpi.id] || { warning: 0, critical: 0, direction: "below" as const, enabled: false },
 }));
 
