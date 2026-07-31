@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { sites } from "../../../mocks/sites";
+import { useSites } from "../../../lib/api";
 
 interface RunDiagnosticModalProps {
   open: boolean;
@@ -22,6 +22,7 @@ const priorities = [
 const SUBMIT_ADDR = "https://readdy.ai/api/form/d9kj820h9dsfbuoi6gf0";
 
 export default function RunDiagnosticModal({ open, onClose }: RunDiagnosticModalProps) {
+  const { data: sites } = useSites();
   const [selectedSite, setSelectedSite] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [priority, setPriority] = useState("medium");

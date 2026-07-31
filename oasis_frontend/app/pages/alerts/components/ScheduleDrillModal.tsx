@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { sites } from "../../../mocks/sites";
+import { useSites } from "../../../lib/api";
 
 interface ScheduleDrillModalProps {
   open: boolean;
@@ -7,6 +7,7 @@ interface ScheduleDrillModalProps {
 }
 
 export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModalProps) {
+  const { data: sites } = useSites();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

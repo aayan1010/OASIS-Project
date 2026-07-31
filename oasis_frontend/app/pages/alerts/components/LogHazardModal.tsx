@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { sites } from "../../../mocks/sites";
+import { useSites } from "../../../lib/api";
 
 interface LogHazardModalProps {
   open: boolean;
@@ -7,6 +7,7 @@ interface LogHazardModalProps {
 }
 
 export default function LogHazardModal({ open, onClose }: LogHazardModalProps) {
+  const { data: sites } = useSites();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

@@ -1,7 +1,8 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { monthlyBudget } from "../../../mocks/finance";
+import { useMonthlyBudget } from "../../../lib/api";
 
 export default function BudgetChart() {
+  const { data: monthlyBudget } = useMonthlyBudget();
   return (
     <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
       <div className="flex items-center justify-between mb-4">

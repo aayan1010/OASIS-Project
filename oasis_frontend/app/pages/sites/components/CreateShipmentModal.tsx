@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { sites } from "../../../mocks/sites";
+import { useSites } from "../../../lib/api";
 
 interface CreateShipmentModalProps {
   open: boolean;
@@ -22,6 +22,7 @@ const priorities = [
 const SUBMIT_ADDR = "https://readdy.ai/api/form/d9kj820h9dsfbuoi6gfg";
 
 export default function CreateShipmentModal({ open, onClose }: CreateShipmentModalProps) {
+  const { data: sites } = useSites();
   const [shipmentType, setShipmentType] = useState("");
   const [originSite, setOriginSite] = useState("");
   const [destSite, setDestSite] = useState("");

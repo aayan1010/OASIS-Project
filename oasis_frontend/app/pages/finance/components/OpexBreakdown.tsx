@@ -1,7 +1,8 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { opexBreakdown } from "../../../mocks/finance";
+import { useOpexBreakdown } from "../../../lib/api";
 
 export default function OpexBreakdown() {
+  const { data: opexBreakdown } = useOpexBreakdown();
   return (
     <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
       <h3 className="text-sm font-heading font-semibold text-foreground-900 mb-1">OPEX Breakdown (MTD)</h3>

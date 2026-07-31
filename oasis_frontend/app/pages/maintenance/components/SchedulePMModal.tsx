@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { assetLocations } from "../../../mocks/assets";
-import { sites } from "../../../mocks/sites";
+import { useAssets, useSites } from "../../../lib/api";
 
 interface SchedulePMModalProps {
   open: boolean;
@@ -27,6 +26,8 @@ const pmTypes = [
 ];
 
 export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps) {
+  const { data: assetLocations } = useAssets();
+  const { data: sites } = useSites();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
