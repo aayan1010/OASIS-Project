@@ -7,7 +7,7 @@ import OpexBreakdown from "./components/OpexBreakdown";
 import RevenueStreams from "./components/RevenueStreams";
 import CostMetrics from "./components/CostMetrics";
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
-import { revenueStreams } from "../../mocks/finance";
+import { useRevenueStreams } from "../../lib/api";
 
 const financeKpis = [
   {
@@ -79,6 +79,7 @@ const financeActions = [
 ];
 
 export default function FinancePage() {
+  const { data: revenueStreams } = useRevenueStreams();
   const [kpis, setKpis] = useState(financeKpis);
   const [viewMode, setViewMode] = useState("budget");
   const [exportModalOpen, setExportModalOpen] = useState(false);

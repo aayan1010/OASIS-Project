@@ -6,70 +6,8 @@ import MaintenanceCalendar from "./components/MaintenanceCalendar";
 import KanbanBoard from "./components/KanbanBoard";
 import CreateWorkOrderModal from "./components/CreateWorkOrderModal";
 import SchedulePMModal from "./components/SchedulePMModal";
-import { openWorkOrders, inProgressWorkOrders, totalMaintenanceCost, totalDowntimeHours, overdueWorkOrders, workOrders } from "../../mocks/maintenance";
-
-const maintenanceKpis = [
-  {
-    id: "total-work-orders",
-    title: "Total Work Orders",
-    value: workOrders.length,
-    change: `${inProgressWorkOrders} in progress`,
-    changeType: "neutral" as const,
-    icon: "ri-file-list-3-line",
-    color: "secondary" as const,
-    pinned: true,
-  },
-  {
-    id: "overdue-tasks",
-    title: "Overdue Tasks",
-    value: overdueWorkOrders,
-    change: overdueWorkOrders > 0 ? "+1" : "0",
-    changeType: overdueWorkOrders > 5 ? "negative" as const : "neutral" as const,
-    icon: "ri-time-line",
-    color: "accent" as const,
-    pinned: true,
-  },
-  {
-    id: "maintenance-cost",
-    title: "MTD Maintenance Cost",
-    value: `$${Math.round(totalMaintenanceCost / 1000)}K`,
-    change: "-4.2%",
-    changeType: "positive" as const,
-    icon: "ri-money-dollar-circle-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "pm-compliance",
-    title: "Downtime Hours",
-    value: String(Math.round(totalDowntimeHours * 10) / 10),
-    change: "-8.2 hrs vs. prior",
-    changeType: "positive" as const,
-    icon: "ri-time-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "spare-parts",
-    title: "Open Work Orders",
-    value: openWorkOrders,
-    change: "-2",
-    changeType: "positive" as const,
-    icon: "ri-folder-open-line",
-    color: "secondary" as const,
-    pinned: false,
-  },
-  {
-    id: "crew-utilization",
-    title: "Crew Utilization",
-    value: "76%",
-    change: "+5%",
-    changeType: "positive" as const,
-    icon: "ri-team-line",
-    color: "secondary" as const,
-    pinned: false,
-  },
-];
+import { totalMaintenanceCost, totalDowntimeHours } from "../../mocks/maintenance";
+import { useWorkOrders } from "../../lib/api";
 
 const maintenanceActions = [
   { id: "create-wo", label: "Create Work Order", icon: "ri-file-add-line", color: "primary" as const },
@@ -77,14 +15,77 @@ const maintenanceActions = [
 ];
 
 export default function MaintenancePage() {
-  const [kpis, setKpis] = useState(maintenanceKpis);
+  const { data: workOrders } = useWorkOrders();
+  const openWorkOrders = workOrders.filter((wo) => wo.status === "open").length;
+  const inProgressWorkOrders = workOrders.filter((wo) => wo.status === "in_progress").length;
+  const overdueWorkOrders = workOrders.filter(
+    (wo) => wo.status === "open" && new Date(wo.dueDate) < new Date("2026-07-15")
+  ).length;
+
+  const [pinnedIds, setPinnedIds] = useState<string[]>(["total-work-orders", "overdue-tasks", "maintenance-cost", "pm-compliance"]);
+  const kpis = [
+    {
+      id: "total-work-orders",
+      title: "Total Work Orders",
+      value: workOrders.length,
+      change: `${inProgressWorkOrders} in progress`,
+      changeType: "neutral" as const,
+      icon: "ri-file-list-3-line",
+      color: "secondary" as const,
+    },
+    {
+      id: "overdue-tasks",
+      title: "Overdue Tasks",
+      value: overdueWorkOrders,
+      change: overdueWorkOrders > 0 ? "+1" : "0",
+      changeType: overdueWorkOrders > 5 ? "negative" as const : "neutral" as const,
+      icon: "ri-time-line",
+      color: "accent" as const,
+    },
+    {
+      id: "maintenance-cost",
+      title: "MTD Maintenance Cost",
+      value: `$${Math.round(totalMaintenanceCost / 1000)}K`,
+      change: "-4.2%",
+      changeType: "positive" as const,
+      icon: "ri-money-dollar-circle-line",
+      color: "primary" as const,
+    },
+    {
+      id: "pm-compliance",
+      title: "Downtime Hours",
+      value: String(Math.round(totalDowntimeHours * 10) / 10),
+      change: "-8.2 hrs vs. prior",
+      changeType: "positive" as const,
+      icon: "ri-time-line",
+      color: "primary" as const,
+    },
+    {
+      id: "spare-parts",
+      title: "Open Work Orders",
+      value: openWorkOrders,
+      change: "-2",
+      changeType: "positive" as const,
+      icon: "ri-folder-open-line",
+      color: "secondary" as const,
+    },
+    {
+      id: "crew-utilization",
+      title: "Crew Utilization",
+      value: "76%",
+      change: "+5%",
+      changeType: "positive" as const,
+      icon: "ri-team-line",
+      color: "secondary" as const,
+    },
+  ].map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
   const [viewMode, setViewMode] = useState("calendar");
   const [workOrderModalOpen, setWorkOrderModalOpen] = useState(false);
   const [pmModalOpen, setPmModalOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
-    setKpis((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
+    setPinnedIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
   };
 

@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { assetLocations } from "../../../mocks/assets";
-import { sites } from "../../../mocks/sites";
+import { useAssets, useSites, useWorkOrders, createWorkOrder } from "../../../lib/api";
 
 interface CreateWorkOrderModalProps {
   open: boolean;
@@ -13,7 +12,23 @@ const technicians = [
   "Alicia Ferguson", "Mike Delgado",
 ];
 
+const typeLabels: Record<string, string> = {
+  repair: "Repair",
+  preventative_maintenance: "Preventative Maintenance",
+  inspection: "Inspection",
+  equipment_replacement: "Equipment Replacement",
+  emergency: "Emergency Repair",
+  calibration: "Calibration",
+};
+
+function getInitials(name: string): string {
+  return name.split(" ").map((p) => p[0]).join("").toUpperCase();
+}
+
 export default function CreateWorkOrderModal({ open, onClose }: CreateWorkOrderModalProps) {
+  const { data: assetLocations } = useAssets();
+  const { data: sites } = useSites();
+  const { revalidate } = useWorkOrders();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,28 +49,37 @@ export default function CreateWorkOrderModal({ open, onClose }: CreateWorkOrderM
     setLoading(true);
     try {
       const formData = new FormData(form);
-      formData.delete("phone_alt");
-      const res = await fetch("https://readdy.ai/api/form/d9kjdm6c26n1c7c5qj70", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(formData as unknown as Record<string, string>).toString(),
+      const assetId = String(formData.get("asset_id") ?? "");
+      const woType = String(formData.get("wo_type") ?? "");
+      const assignee = String(formData.get("assignee") ?? "");
+      const description = String(formData.get("description") ?? "");
+      const dueDate = String(formData.get("due_date") ?? "");
+      const estimatedHours = Number(formData.get("estimated_hours") ?? 1);
+      const woNumber = `MR-${String(Date.now()).slice(-6)}`;
+
+      await createWorkOrder({
+        id: woNumber.toLowerCase(),
+        woNumber,
+        title: description.slice(0, 60),
+        description,
+        asset: assetId,
+        assetId,
+        status: "open",
+        priority: String(formData.get("priority") ?? "medium") as "low" | "medium" | "high" | "critical",
+        assignee,
+        assigneeInitials: getInitials(assignee),
+        dueDate,
+        createdDate: new Date().toISOString().slice(0, 10),
+        estimatedHours: Number.isFinite(estimatedHours) ? estimatedHours : 1,
+        actualHours: 0,
+        category: typeLabels[woType] ?? woType,
+        tags: [typeLabels[woType] ?? woType],
       });
-      const text = await res.text();
-      let parsed: Record<string, unknown> = {};
-      try { parsed = JSON.parse(text); } catch { /* raw text fallback */ }
-      const code = (parsed as { code?: string })?.code;
-      if (res.ok && code === "OK") {
-        setSubmitted(true);
-        form.reset();
-      } else {
-        const msg = (parsed as { meta?: { message?: string } })?.meta?.message
-          || (parsed as { message?: string })?.message
-          || text
-          || "Submission failed. Please try again.";
-        setError(msg.includes("spam") ? "Submission could not be processed." : String(msg));
-      }
+      await revalidate();
+      setSubmitted(true);
+      form.reset();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Could not create the work order. Check that the backend is running and try again.");
     } finally {
       setLoading(false);
     }

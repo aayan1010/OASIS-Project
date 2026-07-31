@@ -1,6 +1,7 @@
 "use client";
 
-import { telemetryStreams, sectorColors, type TelemetrySensor, getRecentSeries } from "../../../mocks/assets";
+import { sectorColors, type TelemetrySensor, getRecentSeries } from "../../../mocks/assets";
+import { useTelemetry } from "../../../lib/api";
 import { useState, useEffect, useMemo, useCallback } from "react";
 
 const statusStyles: Record<string, { bg: string; text: string; border: string }> = {
@@ -113,6 +114,7 @@ const tickerItem = (sensor: TelemetrySensor, index: number) => {
 };
 
 export default function TelemetryTicker() {
+  const { data: telemetryStreams } = useTelemetry();
   const [tickerVersion, setTickerVersion] = useState(0);
   const [selectedSector, setSelectedSector] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -121,7 +123,7 @@ export default function TelemetryTicker() {
   const shuffledData = useMemo(() => {
     const shuffled = shuffleArray(telemetryStreams);
     return [...shuffled, ...shuffleArray(telemetryStreams)];
-  }, [tickerVersion]);
+  }, [telemetryStreams, tickerVersion]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -136,7 +138,7 @@ export default function TelemetryTicker() {
       if (selectedStatus !== "all" && s.status !== selectedStatus) return false;
       return true;
     });
-  }, [selectedSector, selectedStatus]);
+  }, [telemetryStreams, selectedSector, selectedStatus]);
 
   const stats = useMemo(() => {
     const total = telemetryStreams.length;
@@ -144,11 +146,11 @@ export default function TelemetryTicker() {
     const warning = telemetryStreams.filter((s) => s.status === "warning").length;
     const critical = telemetryStreams.filter((s) => s.status === "critical").length;
     return { total, normal, warning, critical };
-  }, []);
+  }, [telemetryStreams]);
 
   const getStatusCount = useCallback((status: string) => {
     return telemetryStreams.filter((s) => s.status === status).length;
-  }, []);
+  }, [telemetryStreams]);
 
   return (
     <div className="space-y-4">

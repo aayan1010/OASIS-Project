@@ -11,11 +11,23 @@ import IncidentsTable from "../../pages/safety/components/IncidentsTable";
 import ComplianceGauge from "../../pages/safety/components/ComplianceGauge";
 import HazardBreakdown from "../../pages/safety/components/HazardBreakdown";
 import SafetyDrills from "../../pages/safety/components/SafetyDrills";
-import { alertRecords, activeAlertCount, highSeverityAlertCount, acknowledgedAlertCount, resolvedAlertCount, alertTypeBreakdown } from "../../mocks/alerts";
-import { assetLocations } from "../../mocks/assets";
+import { useAlerts, useAssets } from "../../lib/api";
 
 export default function AlertsPage() {
-  const [kpis, setKpis] = useState(() => [
+  const { data: alertRecords } = useAlerts();
+  const { data: assetLocations } = useAssets();
+
+  const activeAlertCount = alertRecords.filter((a) => a.status === "active").length;
+  const highSeverityAlertCount = alertRecords.filter((a) => a.status === "active" && a.severity === "high").length;
+  const acknowledgedAlertCount = alertRecords.filter((a) => a.status === "acknowledged").length;
+  const resolvedAlertCount = alertRecords.filter((a) => a.status === "resolved").length;
+  const alertTypeBreakdown = [
+    { type: "High Temperature", count: alertRecords.filter((a) => a.alertType === "High Temperature").length },
+    { type: "Excess Vibration", count: alertRecords.filter((a) => a.alertType === "Excess Vibration").length },
+  ];
+
+  const [pinnedIds, setPinnedIds] = useState<string[]>(["days-safe", "active-alerts", "acknowledged", "resolved-alerts"]);
+  const kpis = [
     {
       id: "days-safe",
       title: "Days Without Incident",
@@ -76,7 +88,7 @@ export default function AlertsPage() {
       color: "secondary" as const,
       pinned: false,
     },
-  ]);
+  ].map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
   const [viewMode, setViewMode] = useState("incidents");
   const { breachAlerts } = useThresholdAlerts();
   const [reportIncidentOpen, setReportIncidentOpen] = useState(false);
@@ -84,8 +96,8 @@ export default function AlertsPage() {
   const [scheduleDrillOpen, setScheduleDrillOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
-    setKpis((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
+    setPinnedIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
   };
 
