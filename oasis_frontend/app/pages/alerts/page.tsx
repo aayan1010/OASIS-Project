@@ -13,6 +13,19 @@ import HazardBreakdown from "../../pages/safety/components/HazardBreakdown";
 import SafetyDrills from "../../pages/safety/components/SafetyDrills";
 import { useAlerts, useAssets } from "../../lib/api";
 
+// Helper function to safely format dates without crashing
+function safeFormatDate(ts: unknown): string {
+  if (!ts) return "N/A";
+  if (typeof ts === "string") return ts.slice(0, 10);
+  try {
+    const d = new Date(ts as string | number | Date);
+    if (isNaN(d.getTime())) return String(ts).slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  } catch {
+    return String(ts).slice(0, 10);
+  }
+}
+
 export default function AlertsPage() {
   const { data: alertRecords } = useAlerts();
   const { data: assetLocations } = useAssets();
@@ -280,7 +293,9 @@ export default function AlertsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-foreground-400">{alert.timestamp.slice(0, 10)}</span>
+                          <span className="text-xs text-foreground-400">
+                            {safeFormatDate(alert.timestamp)}
+                          </span>
                         </td>
                       </tr>
                     ))}

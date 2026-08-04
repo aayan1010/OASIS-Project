@@ -12,6 +12,7 @@ import { sites } from "../../mocks/sites";
 import { workOrders } from "../../mocks/maintenance";
 import ReportIncidentModal from "./components/ReportIncidentModal";
 import ExportReportModal from "./components/ExportReportModal";
+import AddCardModal, { type KpiItem } from "./components/AddCardModal";
 
 const defaultThresholds: Record<string, AlertThreshold> = {
   "active-alerts": { warning: 15, critical: 20, direction: "above", enabled: true },
@@ -26,7 +27,6 @@ const defaultThresholds: Record<string, AlertThreshold> = {
 
 const kpisWithThresholds = dashboardKpiData.map((kpi) => ({
   ...kpi,
-  color: kpi.color as "accent" | "primary" | "secondary" | undefined, 
   thresholds: defaultThresholds[kpi.id] || { warning: 0, critical: 0, direction: "below" as const, enabled: false },
 }));
 
@@ -36,6 +36,7 @@ export default function Home() {
   const [activeSector, setActiveSector] = useState("upstream");
   const [showReportModal, setShowReportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
   const { breachAlerts, syncPageKpis, clearPageKpis } = useThresholdAlerts();
 
   useEffect(() => {
@@ -49,6 +50,18 @@ export default function Home() {
     );
   };
 
+  const handleAddCard = (kpi: KpiItem) => {
+    setKpis((prev) => {
+      if (prev.some((k) => k.id === kpi.id)) return prev;
+      return [...prev, kpi];
+    });
+    setShowAddCardModal(false);
+  };
+
+  const handleRemoveCard = (id: string) => {
+    setKpis((prev) => prev.filter((k) => k.id !== id));
+  };
+
   const handleThresholdsChange = (id: string, t: AlertThreshold) => {
     setKpis((prev) =>
       prev.map((k) => (k.id === id ? { ...k, thresholds: t } : k))
@@ -58,7 +71,7 @@ export default function Home() {
   const handleQuickAction = (id: string) => {
     switch (id) {
       case "create-work-order":
-        router.push("/pages/maintenance");
+        router.push("pages/maintenance");
         break;
       case "report-incident":
         setShowReportModal(true);
@@ -67,10 +80,10 @@ export default function Home() {
         setShowExportModal(true);
         break;
       case "schedule-inspection":
-        router.push("/pages/maintenance");
+        router.push("pages/maintenance");
         break;
       case "view-telemetry":
-        router.push("/pages/performance");
+        router.push("pages/performance");
         break;
       default:
         break;
@@ -87,9 +100,10 @@ export default function Home() {
         kpis={kpis}
         onTogglePin={handleTogglePin}
         onThresholdsChange={handleThresholdsChange}
+        onAddCard={() => setShowAddCardModal(true)}
+        onRemoveCard={handleRemoveCard}
         quickActions={quickActions.map((a) => ({
           ...a,
-          color: a.color as "accent" | "primary" | "secondary" | undefined,
           onClick: () => handleQuickAction(a.id),
         }))}
       />
@@ -355,6 +369,12 @@ export default function Home() {
       <ExportReportModal
         open={showExportModal}
         onClose={() => setShowExportModal(false)}
+      />
+      <AddCardModal
+        open={showAddCardModal}
+        onClose={() => setShowAddCardModal(false)}
+        existingIds={kpis.map((k) => k.id)}
+        onAdd={handleAddCard}
       />
     </>
   );

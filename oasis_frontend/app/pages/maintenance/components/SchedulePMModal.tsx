@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useAssets, useSites } from "../../../lib/api";
+import { useAssets, useSites, useWorkOrders, createWorkOrder } from "../../../lib/api";
 
 interface SchedulePMModalProps {
   open: boolean;
@@ -24,10 +24,14 @@ const pmTypes = [
   "Safety System Test",
   "Cooling System Flush",
 ];
+function getInitials(name: string): string {
+  return name.split(" ").map((p) => p[0]).join("").toUpperCase();
+}
 
 export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps) {
   const { data: assetLocations } = useAssets();
   const { data: sites } = useSites();
+  const { revalidate } = useWorkOrders();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,7 +41,6 @@ export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps)
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-
     const form = e.currentTarget;
     const honeypot = (form.elements.namedItem("phone_alt") as HTMLInputElement)?.value?.trim();
     if (honeypot) {
@@ -48,28 +51,44 @@ export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps)
     setLoading(true);
     try {
       const formData = new FormData(form);
-      formData.delete("phone_alt");
-      const res = await fetch("https://readdy.ai/api/form/d9kjdm6c26n1c7c5qj7g", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(formData as unknown as Record<string, string>).toString(),
+      
+      const assetId = String(formData.get("asset_id") ?? "");
+      const pmTypeRaw = String(formData.get("pm_type") ?? "");
+      const pmTypeLabel = pmTypes.find(t => t.replace(/\s+/g, "_").toLowerCase() === pmTypeRaw) || pmTypeRaw;
+      const scheduledDate = String(formData.get("scheduled_date") ?? new Date().toISOString().slice(0, 10));
+      const priority = String(formData.get("priority") ?? "medium") as "low" | "medium" | "high" | "critical";
+      const assignee = String(formData.get("assignee") ?? "");
+      const estimatedDuration = Number(formData.get("estimated_duration") ?? 2);
+      const notes = String(formData.get("notes") ?? "");
+
+      const woNumber = `PM-${String(Date.now()).slice(-6)}`;
+
+      // Create the work order in the system to populate the calendar
+      await createWorkOrder({
+        id: woNumber.toLowerCase(),
+        woNumber,
+        title: pmTypeLabel,
+        description: notes || `Scheduled PM: ${pmTypeLabel}`,
+        asset: assetId,
+        assetId,
+        status: "open",
+        priority,
+        assignee,
+        assigneeInitials: getInitials(assignee),
+        dueDate: scheduledDate,
+        // MaintenanceCalendar maps events using createdDate, so we tie the selected date here
+        createdDate: scheduledDate, 
+        estimatedHours: Number.isFinite(estimatedDuration) ? estimatedDuration : 2,
+        actualHours: 0,
+        category: "Preventative Maintenance",
+        tags: ["Preventative Maintenance", "PM"],
       });
-      const text = await res.text();
-      let parsed: Record<string, unknown> = {};
-      try { parsed = JSON.parse(text); } catch { /* raw text fallback */ }
-      const code = (parsed as { code?: string })?.code;
-      if (res.ok && code === "OK") {
-        setSubmitted(true);
-        form.reset();
-      } else {
-        const msg = (parsed as { meta?: { message?: string } })?.meta?.message
-          || (parsed as { message?: string })?.message
-          || text
-          || "Submission failed. Please try again.";
-        setError(msg.includes("spam") ? "Submission could not be processed." : String(msg));
-      }
+
+      await revalidate();
+      setSubmitted(true);
+      form.reset();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Could not schedule the PM. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -119,7 +138,7 @@ export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps)
                 <option value="">Select asset...</option>
                 {assetLocations.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.id} — {a.name} ({a.status === "online" ? "Online" : a.status === "maintenance" ? "In Maintenance" : a.status === "degraded" ? "Degraded" : "Offline"})
+                    {a.id} &mdash; {a.name} ({a.status === "online" ? "Online" : a.status === "maintenance" ? "In Maintenance" : a.status === "degraded" ? "Degraded" : "Offline"})
                   </option>
                 ))}
               </select>
@@ -216,7 +235,7 @@ export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps)
                 <option value="">Select site...</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.id} — {s.name}
+                    {s.id} &mdash; {s.name}
                   </option>
                 ))}
               </select>

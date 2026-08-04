@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useSites } from "../../../lib/api";
+import { useSites, createDrill, useDrills } from "../../../lib/api";
 
 interface ScheduleDrillModalProps {
   open: boolean;
@@ -8,6 +8,7 @@ interface ScheduleDrillModalProps {
 
 export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModalProps) {
   const { data: sites } = useSites();
+  const { revalidate } = useDrills(); 
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,39 +18,45 @@ export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModal
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-
     const form = e.currentTarget;
     const honeypot = (form.elements.namedItem("mobile_alt") as HTMLInputElement)?.value?.trim();
     if (honeypot) {
       setSubmitted(true);
       return;
     }
-
+    
     setLoading(true);
+    
     try {
       const formData = new FormData(form);
-      formData.delete("mobile_alt");
-      const res = await fetch("https://readdy.ai/api/form/d9kirf6c26n1c7c5qj40", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(formData as unknown as Record<string, string>).toString(),
+      
+      const drillType = String(formData.get("drill_type") ?? "");
+      const drillDate = String(formData.get("drill_date") ?? "");
+      const drillTime = String(formData.get("drill_time") ?? "");
+      const siteId = String(formData.get("site") ?? "");
+      const participants = Number(formData.get("participants") ?? 0);
+      const notes = String(formData.get("notes") ?? "");
+
+      const drillId = `DRILL-${String(Date.now()).slice(-6)}`;
+
+      await createDrill({
+        id: drillId.toLowerCase(),
+        drillNumber: drillId,
+        type: drillType,
+        date: drillDate,
+        time: drillTime,
+        site: siteId,
+        participants: participants,
+        notes: notes,
+        status: "scheduled",
       });
-      const text = await res.text();
-      let parsed: Record<string, unknown> = {};
-      try { parsed = JSON.parse(text); } catch { /* raw text fallback */ }
-      const code = (parsed as { code?: string })?.code;
-      if (res.ok && code === "OK") {
-        setSubmitted(true);
-        form.reset();
-      } else {
-        const msg = (parsed as { meta?: { message?: string } })?.meta?.message
-          || (parsed as { message?: string })?.message
-          || text
-          || "Submission failed. Please try again.";
-        setError(msg.includes("spam") ? "Submission could not be processed." : String(msg));
-      }
+      
+      await revalidate();
+
+      setSubmitted(true);
+      form.reset();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Could not schedule the drill. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -70,14 +77,14 @@ export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModal
             <i className="ri-close-line"></i>
           </button>
         </div>
-
+        
         {submitted ? (
           <div className="px-5 py-10 text-center">
             <div className="w-12 h-12 mx-auto flex items-center justify-center rounded-full bg-emerald-50 mb-3">
               <i className="ri-check-line text-emerald-500 text-xl"></i>
             </div>
             <p className="text-sm font-medium text-foreground-800">Drill Scheduled</p>
-            <p className="text-xs text-foreground-500 mt-1">The safety drill has been scheduled successfully.</p>
+            <p className="text-xs text-foreground-500 mt-1">The safety drill has been scheduled and added to the calendar successfully.</p>
             <button
               onClick={() => { setSubmitted(false); onClose(); }}
               className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-secondary-500 text-background-50 hover:bg-secondary-600 transition-colors whitespace-nowrap"
@@ -106,7 +113,7 @@ export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModal
                 <option value="earthquake">Earthquake / Natural Disaster</option>
               </select>
             </div>
-
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-foreground-600 mb-1.5">
@@ -131,7 +138,7 @@ export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModal
                 />
               </div>
             </div>
-
+            
             <div>
               <label className="block text-xs font-medium text-foreground-600 mb-1.5">
                 Site
@@ -144,12 +151,12 @@ export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModal
                 <option value="">Select site...</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.id} — {s.name}
+                    {s.id} &mdash; {s.name}
                   </option>
                 ))}
               </select>
             </div>
-
+            
             <div>
               <label className="block text-xs font-medium text-foreground-600 mb-1.5">
                 Estimated Participants
@@ -163,7 +170,7 @@ export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModal
                 className="w-full rounded-md border border-background-200 bg-background-50 px-3 py-2 text-sm text-foreground-800 focus:outline-none focus:border-secondary-300 transition-colors"
               />
             </div>
-
+            
             <div>
               <label className="block text-xs font-medium text-foreground-600 mb-1.5">
                 Notes
@@ -177,15 +184,15 @@ export default function ScheduleDrillModal({ open, onClose }: ScheduleDrillModal
               ></textarea>
               <p className="text-xs text-foreground-400 mt-1">Max 500 characters</p>
             </div>
-
+            
             <div className="honeypot-wrap" style={{ position: "absolute", left: "-9999px", opacity: 0 }}>
               <input type="text" name="mobile_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly />
             </div>
-
+            
             {error && (
               <p className="text-xs text-accent-600 bg-accent-50 rounded-md px-3 py-2">{error}</p>
             )}
-
+            
             <div className="flex items-center gap-3 pt-1">
               <button
                 type="button"

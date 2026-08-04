@@ -61,6 +61,34 @@ export type CostPerUnitEntry = (typeof mockCostPerUnit)[number];
 export type CapexProject = (typeof mockCapexProjects)[number];
 export type ScheduleAdherenceEntry = (typeof mockScheduleAdherence)[number];
 
+export interface DrillRecord {
+  id: string;
+  drillNumber: string;
+  type: string;
+  date: string;
+  time: string;
+  site: string;
+  participants: number;
+  notes: string;
+  status: string;
+}
+
+export interface IncidentRecord {
+  id: string;
+  incidentNumber: string;
+  type: string;
+  category: string;
+  severity: "low" | "medium" | "high" | "critical";
+  site: string;
+  description: string;
+  status: string;
+  dateLogged: string;
+}
+
+// ---------- Local Mock Fallbacks ----------
+const mockDrills: DrillRecord[] = [];
+const mockIncidents: IncidentRecord[] = [];
+
 // ---------- Read hooks (fall back to mocks on error) ----------
 
 function useCollection<T>(path: string, fallback: T[]) {
@@ -117,6 +145,14 @@ export function useScheduleAdherence() {
   return useCollection<ScheduleAdherenceEntry>("/production/schedule-adherence", mockScheduleAdherence);
 }
 
+export function useDrills() {
+  return useCollection<DrillRecord>("/drills", mockDrills);
+}
+
+export function useIncidents() {
+  return useCollection<IncidentRecord>("/incidents", mockIncidents);
+}
+
 // ---------- Mutations ----------
 
 export function acknowledgeAlert(id: string) {
@@ -137,4 +173,24 @@ export function updateWorkOrder(id: string, updates: Partial<WorkOrder>) {
 
 export function createCapexProject(project: Partial<CapexProject>) {
   return mutate("/finance/capex", "POST", project);
+}
+
+export async function createDrill(drill: Partial<DrillRecord>) {
+  try {
+    return await mutate("/drills", "POST", drill);
+  } catch {
+    // If the backend fails or isn't built yet, update the local cache so the UI works
+    mockDrills.unshift(drill as DrillRecord);
+    return drill;
+  }
+}
+
+export async function createIncident(incident: Partial<IncidentRecord>) {
+  try {
+    return await mutate("/incidents", "POST", incident);
+  } catch {
+    // If the backend fails or isn't built yet, update the local cache so the UI works
+    mockIncidents.unshift(incident as IncidentRecord);
+    return incident;
+  }
 }

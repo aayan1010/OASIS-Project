@@ -35,6 +35,8 @@ interface TopOverviewProps {
   kpis: KpiData[];
   onTogglePin?: (id: string) => void;
   onThresholdsChange?: (id: string, t: AlertThreshold) => void;
+  onAddCard?: () => void;
+  onRemoveCard?: (id: string) => void;
   quickActions?: QuickAction[];
   viewToggle?: {
     options: ViewToggleOption[];
@@ -50,6 +52,8 @@ export default function TopOverview({
   kpis,
   onTogglePin,
   onThresholdsChange,
+  onAddCard,
+  onRemoveCard,
   quickActions,
   viewToggle,
   children,
@@ -95,6 +99,7 @@ export default function TopOverview({
                 color={kpi.color}
                 pinned={kpi.pinned}
                 onTogglePin={() => onTogglePin?.(kpi.id)}
+                onRemove={onRemoveCard ? () => onRemoveCard(kpi.id) : undefined}
                 thresholds={kpi.thresholds}
                 onThresholdsChange={
                   onThresholdsChange
@@ -103,6 +108,32 @@ export default function TopOverview({
                 }
               />
             ))}
+            {onAddCard && (
+              <button
+                onClick={onAddCard}
+                className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-background-300/80 hover:border-primary-300 hover:bg-primary-50/20 p-4 transition-colors min-h-[120px] cursor-pointer"
+              >
+                <div className="w-9 h-9 flex items-center justify-center rounded-full bg-background-200 text-foreground-400 group-hover:bg-primary-100 group-hover:text-primary-500">
+                  <i className="ri-add-line text-lg"></i>
+                </div>
+                <span className="text-xs font-medium text-foreground-400">Add Card</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {pinnedKpis.length === 0 && onAddCard && (
+          <div className="mb-4">
+            <button
+              onClick={onAddCard}
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-background-300/80 hover:border-primary-300 hover:bg-primary-50/20 p-6 transition-colors w-full max-w-[280px] cursor-pointer"
+            >
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-background-200 text-foreground-400">
+                <i className="ri-add-line text-xl"></i>
+              </div>
+              <span className="text-sm font-medium text-foreground-500">Add your first card</span>
+              <span className="text-xs text-foreground-400">Choose from premade templates or create a custom card</span>
+            </button>
           </div>
         )}
 
