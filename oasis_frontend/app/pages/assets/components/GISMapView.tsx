@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { assetLocations, assetTypeIcons, type AssetLocation } from "../../../mocks/assets";
+import { assetTypeIcons, type AssetLocation } from "../../../mocks/assets";
+import { useAssets } from "../../../lib/api";
 
 const statusConfig: Record<string, { dot: string; label: string }> = {
   online: { dot: "#22c55e", label: "Online" },
@@ -83,6 +84,7 @@ function MapController({ selectedAsset }: { selectedAsset: AssetLocation | null 
 }
 
 export default function GISMapView() {
+  const { data: assetLocations } = useAssets();
   const [selectedAsset, setSelectedAsset] = useState<AssetLocation | null>(null);
   const [filterSector, setFilterSector] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -94,7 +96,7 @@ export default function GISMapView() {
       if (filterStatus !== "all" && a.status !== filterStatus) return false;
       return true;
     });
-  }, [filterSector, filterStatus]);
+  }, [assetLocations, filterSector, filterStatus]);
 
   const statsByStatus = useMemo(
     () => ({
@@ -103,7 +105,7 @@ export default function GISMapView() {
       offline: assetLocations.filter((a) => a.status === "offline").length,
       maintenance: assetLocations.filter((a) => a.status === "maintenance").length,
     }),
-    [],
+    [assetLocations],
   );
 
   const osmUrl = useMemo(() => buildOSMUrl(filteredAssets), [filteredAssets]);

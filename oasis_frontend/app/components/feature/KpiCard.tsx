@@ -15,6 +15,7 @@ interface KpiCardProps {
   color?: "primary" | "accent" | "secondary";
   pinned?: boolean;
   onTogglePin?: () => void;
+  onRemove?: () => void;
   thresholds?: AlertThreshold;
   onThresholdsChange?: (t: AlertThreshold) => void;
   children?: ReactNode;
@@ -30,6 +31,7 @@ export default function KpiCard({
   color = "primary",
   pinned = false,
   onTogglePin,
+  onRemove,
   thresholds,
   onThresholdsChange,
   children,
@@ -110,6 +112,17 @@ export default function KpiCard({
               kpiValue={value}
               kpiTitle={title}
             />
+          )}
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              className="text-foreground-400 hover:text-accent-500 transition-colors"
+              title="Remove card"
+            >
+              <div className="w-5 h-5 flex items-center justify-center">
+                <i className="ri-close-line text-sm"></i>
+              </div>
+            </button>
           )}
           {onTogglePin && (
             <button

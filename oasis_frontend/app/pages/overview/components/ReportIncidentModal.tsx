@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { assetLocations } from "../../../mocks/assets";
+import { createIncident, useIncidents } from "../../../lib/api";
 
 interface ReportIncidentModalProps {
   open: boolean;
@@ -7,6 +8,7 @@ interface ReportIncidentModalProps {
 }
 
 export default function ReportIncidentModal({ open, onClose }: ReportIncidentModalProps) {
+  const { revalidate } = useIncidents();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,9 +18,8 @@ export default function ReportIncidentModal({ open, onClose }: ReportIncidentMod
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-
     const form = e.currentTarget;
-    const honeypot = (form.elements.namedItem("phone_alt") as HTMLInputElement)?.value?.trim();
+        const honeypot = (form.elements.namedItem("phone_alt") as HTMLInputElement)?.value?.trim();
     if (honeypot) {
       setSubmitted(true);
       return;
@@ -27,28 +28,32 @@ export default function ReportIncidentModal({ open, onClose }: ReportIncidentMod
     setLoading(true);
     try {
       const formData = new FormData(form);
-      formData.delete("phone_alt");
-      const res = await fetch("https://readdy.ai/api/form/d9khve8hpes2mi34sn20", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(formData as unknown as Record<string, string>).toString(),
+      
+      const incidentType = String(formData.get("incident_type") ?? "");
+      const severity = String(formData.get("severity") ?? "");
+      const assetId = String(formData.get("asset") ?? "");
+      const description = String(formData.get("description") ?? "");
+
+      const incidentNumber = `INC-${String(Date.now()).slice(-6)}`;
+
+      await createIncident({
+        id: incidentNumber.toLowerCase(),
+        incidentNumber,
+        type: "Incident",
+        category: incidentType,
+        severity: severity as "low" | "medium" | "high" | "critical",
+        site: assetId,
+        description: description,
+        status: "open",
+        dateLogged: new Date().toISOString().slice(0, 10),
       });
-      const text = await res.text();
-      let parsed: Record<string, unknown> = {};
-      try { parsed = JSON.parse(text); } catch { /* raw text fallback */ }
-      const code = (parsed as { code?: string })?.code;
-      if (res.ok && code === "OK") {
-        setSubmitted(true);
-        form.reset();
-      } else {
-        const msg = (parsed as { meta?: { message?: string } })?.meta?.message
-          || (parsed as { message?: string })?.message
-          || text
-          || "Submission failed. Please try again.";
-        setError(msg.includes("spam") ? "Submission could not be processed." : String(msg));
-      }
+      
+      await revalidate();
+
+      setSubmitted(true);
+      form.reset();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Could not submit the incident report. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -69,14 +74,14 @@ export default function ReportIncidentModal({ open, onClose }: ReportIncidentMod
             <i className="ri-close-line"></i>
           </button>
         </div>
-
+        
         {submitted ? (
           <div className="px-5 py-10 text-center">
             <div className="w-12 h-12 mx-auto flex items-center justify-center rounded-full bg-emerald-50 mb-3">
               <i className="ri-check-line text-emerald-500 text-xl"></i>
             </div>
             <p className="text-sm font-medium text-foreground-800">Incident Reported</p>
-            <p className="text-xs text-foreground-500 mt-1">Your report has been submitted successfully.</p>
+            <p className="text-xs text-foreground-500 mt-1">Your report has been submitted successfully and added to the incident dashboard.</p>
             <button
               onClick={() => { setSubmitted(false); onClose(); }}
               className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-primary-500 text-background-50 hover:bg-primary-600 transition-colors whitespace-nowrap"
@@ -104,7 +109,7 @@ export default function ReportIncidentModal({ open, onClose }: ReportIncidentMod
                 <option value="other">Other</option>
               </select>
             </div>
-
+            
             <div>
               <label className="block text-xs font-medium text-foreground-600 mb-1.5">
                 Severity
@@ -121,7 +126,7 @@ export default function ReportIncidentModal({ open, onClose }: ReportIncidentMod
                 <option value="critical">Critical</option>
               </select>
             </div>
-
+            
             <div>
               <label className="block text-xs font-medium text-foreground-600 mb-1.5">
                 Asset / Site
@@ -134,12 +139,12 @@ export default function ReportIncidentModal({ open, onClose }: ReportIncidentMod
                 <option value="">Select asset...</option>
                 {assetLocations.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.id} — {a.name}
+                    {a.id} &mdash; {a.name}
                   </option>
                 ))}
               </select>
             </div>
-
+            
             <div>
               <label className="block text-xs font-medium text-foreground-600 mb-1.5">
                 Description
@@ -154,15 +159,15 @@ export default function ReportIncidentModal({ open, onClose }: ReportIncidentMod
               ></textarea>
               <p className="text-xs text-foreground-400 mt-1">Max 500 characters</p>
             </div>
-
+            
             <div className="honeypot-wrap" style={{ position: "absolute", left: "-9999px", opacity: 0 }}>
               <input type="text" name="phone_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly />
             </div>
-
+            
             {error && (
               <p className="text-xs text-accent-600 bg-accent-50 rounded-md px-3 py-2">{error}</p>
             )}
-
+            
             <div className="flex items-center gap-3 pt-1">
               <button
                 type="button"

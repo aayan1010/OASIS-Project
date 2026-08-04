@@ -11,11 +11,36 @@ import IncidentsTable from "../../pages/safety/components/IncidentsTable";
 import ComplianceGauge from "../../pages/safety/components/ComplianceGauge";
 import HazardBreakdown from "../../pages/safety/components/HazardBreakdown";
 import SafetyDrills from "../../pages/safety/components/SafetyDrills";
-import { alertRecords, activeAlertCount, highSeverityAlertCount, acknowledgedAlertCount, resolvedAlertCount, alertTypeBreakdown } from "../../mocks/alerts";
-import { assetLocations } from "../../mocks/assets";
+import { useAlerts, useAssets } from "../../lib/api";
+
+// Helper function to safely format dates without crashing
+function safeFormatDate(ts: unknown): string {
+  if (!ts) return "N/A";
+  if (typeof ts === "string") return ts.slice(0, 10);
+  try {
+    const d = new Date(ts as string | number | Date);
+    if (isNaN(d.getTime())) return String(ts).slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  } catch {
+    return String(ts).slice(0, 10);
+  }
+}
 
 export default function AlertsPage() {
-  const [kpis, setKpis] = useState(() => [
+  const { data: alertRecords } = useAlerts();
+  const { data: assetLocations } = useAssets();
+
+  const activeAlertCount = alertRecords.filter((a) => a.status === "active").length;
+  const highSeverityAlertCount = alertRecords.filter((a) => a.status === "active" && a.severity === "high").length;
+  const acknowledgedAlertCount = alertRecords.filter((a) => a.status === "acknowledged").length;
+  const resolvedAlertCount = alertRecords.filter((a) => a.status === "resolved").length;
+  const alertTypeBreakdown = [
+    { type: "High Temperature", count: alertRecords.filter((a) => a.alertType === "High Temperature").length },
+    { type: "Excess Vibration", count: alertRecords.filter((a) => a.alertType === "Excess Vibration").length },
+  ];
+
+  const [pinnedIds, setPinnedIds] = useState<string[]>(["days-safe", "active-alerts", "acknowledged", "resolved-alerts"]);
+  const kpis = [
     {
       id: "days-safe",
       title: "Days Without Incident",
@@ -76,7 +101,7 @@ export default function AlertsPage() {
       color: "secondary" as const,
       pinned: false,
     },
-  ]);
+  ].map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
   const [viewMode, setViewMode] = useState("incidents");
   const { breachAlerts } = useThresholdAlerts();
   const [reportIncidentOpen, setReportIncidentOpen] = useState(false);
@@ -84,8 +109,8 @@ export default function AlertsPage() {
   const [scheduleDrillOpen, setScheduleDrillOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
-    setKpis((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
+    setPinnedIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
   };
 
@@ -268,7 +293,9 @@ export default function AlertsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-foreground-400">{alert.timestamp.slice(0, 10)}</span>
+                          <span className="text-xs text-foreground-400">
+                            {safeFormatDate(alert.timestamp)}
+                          </span>
                         </td>
                       </tr>
                     ))}

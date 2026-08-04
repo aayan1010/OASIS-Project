@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { calendarEvents, type CalendarEvent } from "../../../mocks/maintenance";
+import { type CalendarEvent } from "../../../mocks/maintenance";
+import { useWorkOrders } from "../../../lib/api";
 
 const eventTypeStyles: Record<string, { bg: string; text: string; label: string }> = {
   pm: { bg: "bg-primary-100", text: "text-primary-700", label: "PM" },
@@ -20,6 +21,16 @@ function getFirstDayOfMonth(year: number, month: number): number {
 }
 
 export default function MaintenanceCalendar() {
+  const { data: workOrders } = useWorkOrders();
+  const calendarEvents: CalendarEvent[] = workOrders.map((wo) => ({
+    id: `evt-${wo.id}`,
+    title: `${wo.category}: ${wo.asset}`,
+    date: wo.createdDate,
+    type: wo.category === "Preventative Maintenance" ? "pm" : wo.category === "Inspection" ? "inspection" : "wo",
+    asset: wo.asset,
+    assignee: wo.assignee,
+    allDay: true,
+  }));
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());

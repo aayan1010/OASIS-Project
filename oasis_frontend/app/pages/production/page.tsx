@@ -6,7 +6,8 @@ import ProductionChart from "./components/ProductionChart";
 import ThroughputCards from "./components/ThroughputCards";
 import YieldComparison from "./components/YieldComparison";
 import DowntimeLog from "./components/DowntimeLog";
-import { scheduleAdherence, totalDailyProduction, avgEfficiency, totalDowntime } from "../../mocks/production";
+import { totalDailyProduction, avgEfficiency, totalDowntime } from "../../mocks/production";
+import { useScheduleAdherence } from "../../lib/api";
 
 const productionKpis = [
   {
@@ -80,6 +81,7 @@ const productionActions = [
 ];
 
 export default function ProductionPage() {
+  const { data: scheduleAdherence } = useScheduleAdherence();
   const [kpis, setKpis] = useState(productionKpis);
   const [viewMode, setViewMode] = useState("charts");
 

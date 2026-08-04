@@ -18,13 +18,29 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { workOrders, workOrderColumns, type WorkOrder, type WorkOrderStatus } from "../../../mocks/maintenance";
+import { useEffect } from "react";
+import { workOrderColumns, type WorkOrder, type WorkOrderStatus } from "../../../mocks/maintenance";
+import { useWorkOrders, updateWorkOrder } from "../../../lib/api";
 import KanbanCard from "./KanbanCard";
 
 export default function KanbanBoard() {
+  const { data: workOrders, isLive } = useWorkOrders();
   const [items, setItems] = useState<WorkOrder[]>(workOrders);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<WorkOrderStatus | null>(null);
+
+  // Sync local state when live data arrives
+  useEffect(() => {
+    setItems(workOrders);
+  }, [workOrders]);
+
+  const persistStatus = (id: string, status: WorkOrderStatus) => {
+    if (isLive) {
+      updateWorkOrder(id, { status }).catch(() => {
+        // Keep optimistic UI; backend persistence is best-effort
+      });
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -83,6 +99,7 @@ export default function KanbanBoard() {
             i.id === activeId ? { ...i, status: targetColumn.id } : i
           )
         );
+        persistStatus(activeId, targetColumn.id);
       }
       return;
     }
@@ -96,6 +113,7 @@ export default function KanbanBoard() {
             i.id === activeId ? { ...i, status: overItem.status } : i
           )
         );
+        persistStatus(activeId, overItem.status);
       }
     }
   };

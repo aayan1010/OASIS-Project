@@ -1,4 +1,4 @@
-import { costPerUnit, capexProjects } from "../../../mocks/finance";
+import { useCostPerUnit, useCapexProjects } from "../../../lib/api";
 
 const projectStatusColors: Record<string, string> = {
   "On Track": "bg-emerald-100 text-emerald-700",
@@ -6,6 +6,8 @@ const projectStatusColors: Record<string, string> = {
 };
 
 export default function CostMetrics() {
+  const { data: costPerUnit } = useCostPerUnit();
+  const { data: capexProjects } = useCapexProjects();
   return (
     <div className="space-y-4">
       <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
