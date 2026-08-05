@@ -9,6 +9,7 @@ const sitesRoutes = require('./routes/sites.routes');
 const maintenanceRoutes = require('./routes/maintenance.routes');
 const financeRoutes = require('./routes/finance.routes');
 const productionRoutes = require('./routes/production.routes');
+const incidentsRoutes = require('./routes/incidents.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -30,6 +31,7 @@ app.use('/api/sites', sitesRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/production', productionRoutes);
+app.use('/api/incidents', incidentsRoutes);
 
 // Start server
 app.listen(PORT, () => {
