@@ -8,6 +8,7 @@ const COLLECTIONS = {
   revenueStreams: 'financeRevenueStreams',
   costPerUnit: 'financeCostPerUnit',
   capexProjects: 'financeCapexProjects',
+  monthlyRevenue: 'financeMonthlyRevenue',
 };
 
 async function getMonthlyBudget() {
@@ -30,6 +31,10 @@ async function getCapexProjects() {
   return getAll(COLLECTIONS.capexProjects);
 }
 
+async function getMonthlyRevenue() {
+  return getAll(COLLECTIONS.monthlyRevenue);
+}
+
 async function createCapexProject(project) {
   return createDoc(COLLECTIONS.capexProjects, project);
 }
@@ -48,6 +53,7 @@ async function seedFinanceData(data) {
   await batchSet(COLLECTIONS.revenueStreams, data.revenueStreams);
   await batchSet(COLLECTIONS.costPerUnit, data.costPerUnit);
   await batchSet(COLLECTIONS.capexProjects, data.capexProjects);
+  await batchSet(COLLECTIONS.monthlyRevenue, data.monthlyRevenue);
 }
 
 module.exports = {
@@ -57,6 +63,7 @@ module.exports = {
   getRevenueStreams,
   getCostPerUnit,
   getCapexProjects,
+  getMonthlyRevenue,
   createCapexProject,
   updateCapexProject,
   deleteCapexProject,
