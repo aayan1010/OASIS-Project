@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { safetyIncidents } from "../../../mocks/safety";
+import { useIncidents, type IncidentRecord } from "../../../lib/api";
 
 const severityColors: Record<string, string> = {
+  "Critical": "bg-red-100 text-red-700",
   "High": "bg-red-100 text-red-700",
   "Medium": "bg-amber-100 text-amber-700",
   "Low": "bg-emerald-100 text-emerald-700",
@@ -15,12 +17,59 @@ const statusColors: Record<string, string> = {
   "Under Review": "bg-amber-100 text-amber-700",
 };
 
+type DisplayIncident = {
+  id: string;
+  type: string;
+  severity: string;
+  location: string;
+  date: string;
+  status: string;
+  description: string;
+  sector: string;
+  reportedBy: string;
+  daysToResolve: number | null;
+};
+
+const categoryLabels: Record<string, string> = {
+  safety: "Safety Incident",
+  equipment: "Equipment Failure",
+  environmental: "Environmental Spill",
+  security: "Security Breach",
+  process: "Process Upset",
+  other: "Other",
+};
+
+const titleCase = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+// Map an incident created via the Report Incident modal into the table's display shape.
+function normalizeReported(inc: IncidentRecord): DisplayIncident {
+  return {
+    id: inc.incidentNumber || inc.id,
+    type: categoryLabels[inc.category] ?? titleCase(inc.category) ?? inc.type,
+    severity: titleCase(inc.severity),
+    location: inc.site,
+    date: inc.dateLogged,
+    status: inc.status === "open" ? "Open" : titleCase(inc.status),
+    description: inc.description,
+    sector: inc.site,
+    reportedBy: "You",
+    daysToResolve: null,
+  };
+}
+
 export default function IncidentsTable() {
+  const { data: reportedIncidents } = useIncidents();
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   const [filterType, setFilterType] = useState("All");
 
-  const types = ["All", ...Array.from(new Set(safetyIncidents.map((i) => i.type)))];
-  const filtered = filterType === "All" ? safetyIncidents : safetyIncidents.filter((i) => i.type === filterType);
+  // Newly reported incidents appear first, followed by the seeded incidents.
+  const allIncidents: DisplayIncident[] = [
+    ...reportedIncidents.map(normalizeReported),
+    ...(safetyIncidents as DisplayIncident[]),
+  ];
+
+  const types = ["All", ...Array.from(new Set(allIncidents.map((i) => i.type)))];
+  const filtered = filterType === "All" ? allIncidents : allIncidents.filter((i) => i.type === filterType);
 
   return (
     <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
@@ -81,7 +130,7 @@ export default function IncidentsTable() {
       </div>
 
       {selectedIncident && (() => {
-        const inc = safetyIncidents.find((i) => i.id === selectedIncident);
+        const inc = allIncidents.find((i) => i.id === selectedIncident);
         if (!inc) return null;
         return (
           <div className="mt-4 p-4 bg-background-100 rounded-lg border border-background-200/50">
