@@ -3,6 +3,12 @@
 
 const { getDb } = require('./admin');
 
+// Firestore document IDs cannot contain "/" and must be non-empty.
+// Sanitize while preserving the original value in the document's `id` field.
+function toDocId(value) {
+  return String(value).replace(/\//g, '-');
+}
+
 async function getAll(collection) {
   const snap = await getDb().collection(collection).get();
   return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -46,7 +52,7 @@ async function batchSet(collection, items) {
   for (const chunk of chunks) {
     const batch = db.batch();
     for (const item of chunk) {
-      batch.set(db.collection(collection).doc(item.id), item);
+      batch.set(db.collection(collection).doc(toDocId(item.id)), item);
     }
     await batch.commit();
   }
