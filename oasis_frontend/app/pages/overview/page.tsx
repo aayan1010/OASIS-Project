@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
@@ -117,16 +117,28 @@ export default function Home() {
     }
   }), [liveKpiValues]);
 
-  const [kpis, setKpis] = useState(kpisWithThresholds);
+  // Store only user-driven overrides (pinned, thresholds) separately so they
+  // never feed back into the live-data memo chain and cause an infinite loop.
+  type KpiOverrides = Record<string, { pinned?: boolean; thresholds?: AlertThreshold }>;
+  const [kpiOverrides, setKpiOverrides] = useState<KpiOverrides>({});
 
-  // Keep kpis in sync whenever live data changes, preserving per-card user overrides (pinned, thresholds).
-  useEffect(() => {
-    setKpis((prev) => kpisWithThresholds.map((liveKpi) => {
-      const existing = prev.find((p) => p.id === liveKpi.id);
-      if (!existing) return liveKpi;
-      return { ...liveKpi, pinned: existing.pinned, thresholds: existing.thresholds };
-    }));
-  }, [kpisWithThresholds]);
+  // Merge live-derived values with any per-card user overrides.
+  const kpis = useMemo(
+    () => kpisWithThresholds.map((kpi) => ({ ...kpi, ...kpiOverrides[kpi.id] })),
+    [kpisWithThresholds, kpiOverrides],
+  );
+
+  // setKpis is called by child components that update the whole array (e.g. AddCardModal,
+  // ThresholdSettings). Extract only the override-able fields and store them.
+  const setKpis = (updater: typeof kpis | ((prev: typeof kpis) => typeof kpis)) => {
+    const next = typeof updater === "function" ? updater(kpis) : updater;
+    setKpiOverrides(
+      next.reduce<KpiOverrides>((acc, k) => {
+        acc[k.id] = { pinned: k.pinned, thresholds: k.thresholds };
+        return acc;
+      }, {}),
+    );
+  };
   const [activeSector, setActiveSector] = useState("upstream");
   const [showReportModal, setShowReportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
