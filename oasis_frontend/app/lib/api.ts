@@ -23,6 +23,11 @@ import {
   capexProjects as mockCapexProjects,
 } from "../mocks/finance";
 import { scheduleAdherence as mockScheduleAdherence } from "../mocks/production";
+import {
+  inventoryItems as mockInventory,
+  shipments as mockShipments,
+  warehouses as mockWarehouses,
+} from "../mocks/logistics";
 
 const API_BASE = "/api/backend";
 
@@ -60,6 +65,9 @@ export type RevenueStreamEntry = (typeof mockRevenueStreams)[number];
 export type CostPerUnitEntry = (typeof mockCostPerUnit)[number];
 export type CapexProject = (typeof mockCapexProjects)[number];
 export type ScheduleAdherenceEntry = (typeof mockScheduleAdherence)[number];
+export type InventoryItem = (typeof mockInventory)[number];
+export type Shipment = (typeof mockShipments)[number];
+export type Warehouse = (typeof mockWarehouses)[number];
 
 export interface ProductionDailyRecord {
   id: string;
@@ -192,6 +200,18 @@ export function useLatestProductionPlan() {
 
 export function useIncidents() {
   return useCollection<IncidentRecord>("/incidents", []);
+}
+
+export function useInventory() {
+  return useCollection<InventoryItem>("/logistics/inventory", mockInventory);
+}
+
+export function useShipments() {
+  return useCollection<Shipment>("/logistics/shipments", mockShipments);
+}
+
+export function useWarehouses() {
+  return useCollection<Warehouse>("/logistics/warehouses", mockWarehouses);
 }
 
 // ---------- Mutations ----------

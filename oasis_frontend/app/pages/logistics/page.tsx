@@ -2,74 +2,12 @@
 
 import DashboardLayout from "../../components/feature/DashboardLayout";
 import TopOverview from "../../components/feature/TopOverview";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import InventoryStatus from "./components/InventoryStatus";
 import ShipmentTracker from "./components/ShipmentTracker";
 import SupplyChainHealth from "./components/SupplyChainHealth";
 import WarehouseUtilization from "./components/WarehouseUtilization";
-
-const logisticsKpis = [
-  {
-    id: "inventory-level",
-    title: "Inventory Level",
-    value: "84%",
-    change: "-2%",
-    changeType: "neutral" as const,
-    icon: "ri-archive-line",
-    color: "secondary" as const,
-    pinned: true,
-  },
-  {
-    id: "low-stock-items",
-    title: "Low Stock Items",
-    value: 12,
-    change: "+3",
-    changeType: "negative" as const,
-    icon: "ri-alarm-warning-line",
-    color: "accent" as const,
-    pinned: true,
-  },
-  {
-    id: "shipments-in-transit",
-    title: "Shipments In Transit",
-    value: 8,
-    change: "+1",
-    changeType: "neutral" as const,
-    icon: "ri-truck-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "delivery-performance",
-    title: "Delivery Performance",
-    value: "92%",
-    change: "+1%",
-    changeType: "positive" as const,
-    icon: "ri-check-double-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "supply-chain-risk",
-    title: "Supply Chain Risk",
-    value: "Low",
-    change: "Stable",
-    changeType: "neutral" as const,
-    icon: "ri-shield-line",
-    color: "secondary" as const,
-    pinned: false,
-  },
-  {
-    id: "warehouses",
-    title: "Active Warehouses",
-    value: 4,
-    change: "0",
-    changeType: "neutral" as const,
-    icon: "ri-store-2-line",
-    color: "secondary" as const,
-    pinned: false,
-  },
-];
+import { useInventory, useShipments, useWarehouses } from "../../lib/api";
 
 const logisticsActions = [
   { id: "create-shipment", label: "Create Shipment", icon: "ri-truck-line", color: "primary" as const },
@@ -78,13 +16,89 @@ const logisticsActions = [
 ];
 
 export default function LogisticsPage() {
-  const [kpis, setKpis] = useState(logisticsKpis);
+  const { data: inventory } = useInventory();
+  const { data: shipments } = useShipments();
+  const { data: warehouses } = useWarehouses();
+
+  const lowStockCount = inventory.filter((i) => i.status === "Low Stock").length;
+  const inTransitCount = shipments.filter((s) => s.status === "In Transit" || s.status === "Out for Delivery").length;
+  const avgWarehouseUtil = warehouses.length
+    ? Math.round(warehouses.reduce((s, w) => s + w.utilization, 0) / warehouses.length)
+    : null;
+
+  const liveKpis = useMemo(() => [
+    {
+      id: "inventory-level",
+      title: "Inventory Level",
+      value: avgWarehouseUtil !== null ? `${avgWarehouseUtil}%` : "84%",
+      change: avgWarehouseUtil !== null && avgWarehouseUtil > 85 ? "Near capacity" : "Adequate",
+      changeType: "neutral" as const,
+      icon: "ri-archive-line",
+      color: "secondary" as const,
+      pinned: true,
+    },
+    {
+      id: "low-stock-items",
+      title: "Low Stock Items",
+      value: lowStockCount,
+      change: lowStockCount > 0 ? `${lowStockCount} need reorder` : "All stocked",
+      changeType: lowStockCount > 3 ? "negative" as const : "neutral" as const,
+      icon: "ri-alarm-warning-line",
+      color: "accent" as const,
+      pinned: true,
+    },
+    {
+      id: "shipments-in-transit",
+      title: "Shipments In Transit",
+      value: inTransitCount,
+      change: `${shipments.length} total shipments`,
+      changeType: "neutral" as const,
+      icon: "ri-truck-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "delivery-performance",
+      title: "Delivered",
+      value: shipments.filter((s) => s.status === "Delivered").length,
+      change: `of ${shipments.length} shipments`,
+      changeType: "positive" as const,
+      icon: "ri-check-double-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "supply-chain-risk",
+      title: "Supply Chain Risk",
+      value: lowStockCount > 5 ? "High" : lowStockCount > 2 ? "Medium" : "Low",
+      change: "Based on stock levels",
+      changeType: lowStockCount > 5 ? "negative" as const : lowStockCount > 2 ? "neutral" as const : "positive" as const,
+      icon: "ri-shield-line",
+      color: "secondary" as const,
+      pinned: false,
+    },
+    {
+      id: "warehouses",
+      title: "Active Warehouses",
+      value: warehouses.length,
+      change: `${warehouses.filter((w) => w.status === "Operational").length} operational`,
+      changeType: "neutral" as const,
+      icon: "ri-store-2-line",
+      color: "secondary" as const,
+      pinned: false,
+    },
+  ], [inventory, shipments, warehouses, lowStockCount, inTransitCount, avgWarehouseUtil]);
+
+  const [pinnedOverrides, setPinnedOverrides] = useState<Record<string, boolean>>({});
+  const kpis = liveKpis.map((k) => ({
+    ...k,
+    pinned: k.id in pinnedOverrides ? pinnedOverrides[k.id] : k.pinned,
+  }));
   const [viewMode, setViewMode] = useState("supply-chain");
 
   const handleTogglePin = (id: string) => {
-    setKpis((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
-    );
+    const current = kpis.find((k) => k.id === id);
+    setPinnedOverrides((prev) => ({ ...prev, [id]: !current?.pinned }));
   };
 
   return (

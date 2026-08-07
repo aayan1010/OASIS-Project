@@ -11,7 +11,7 @@ import IncidentsTable from "../../pages/safety/components/IncidentsTable";
 import ComplianceGauge from "../../pages/safety/components/ComplianceGauge";
 import HazardBreakdown from "../../pages/safety/components/HazardBreakdown";
 import SafetyDrills from "../../pages/safety/components/SafetyDrills";
-import { useAlerts, useAssets } from "../../lib/api";
+import { useAlerts, useAssets, useIncidents } from "../../lib/api";
 
 // Helper function to safely format dates without crashing
 function safeFormatDate(ts: unknown): string {
@@ -29,6 +29,7 @@ function safeFormatDate(ts: unknown): string {
 export default function AlertsPage() {
   const { data: alertRecords } = useAlerts();
   const { data: assetLocations } = useAssets();
+  const { data: incidents } = useIncidents();
 
   const activeAlertCount = alertRecords.filter((a) => a.status === "active").length;
   const highSeverityAlertCount = alertRecords.filter((a) => a.status === "active" && a.severity === "high").length;
@@ -39,13 +40,21 @@ export default function AlertsPage() {
     { type: "Excess Vibration", count: alertRecords.filter((a) => a.alertType === "Excess Vibration").length },
   ];
 
+  const daysSafe = (() => {
+    const dated = incidents
+      .map((i) => new Date(i.dateLogged ?? "").getTime())
+      .filter((t) => !isNaN(t));
+    if (!dated.length) return null;
+    return Math.floor((Date.now() - Math.max(...dated)) / 86_400_000);
+  })();
+
   const [pinnedIds, setPinnedIds] = useState<string[]>(["days-safe", "active-alerts", "acknowledged", "resolved-alerts"]);
   const kpis = [
     {
       id: "days-safe",
       title: "Days Without Incident",
-      value: 16,
-      change: "↑ from 12",
+      value: daysSafe !== null ? daysSafe : 0,
+      change: daysSafe !== null ? `Since last incident` : "No incidents logged",
       changeType: "positive" as const,
       icon: "ri-shield-check-line",
       color: "primary" as const,

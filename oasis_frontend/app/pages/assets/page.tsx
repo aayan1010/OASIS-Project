@@ -1,78 +1,15 @@
 "use client"; 
 
 import TopOverview from "../../components/feature/TopOverview"; 
-import { useState } from "react"; 
-import dynamic from "next/dynamic"; // 1. Add this import
+import { useState, useMemo } from "react"; 
+import dynamic from "next/dynamic";
 import TelemetryTicker from "./components/TelemetryTicker"; 
 import ExportReportModal from "../../pages/overview/components/ExportReportModal"; 
+import { useAssets, useAlerts, useTelemetry } from "../../lib/api";
 
-// 2. Replace the static import with this dynamic one:
 const GISMapView = dynamic(() => import("./components/GISMapView"), { 
   ssr: false,
 });
-
-const assetKpis = [
-  {
-    id: "total-assets",
-    title: "Total Assets",
-    value: 332,
-    change: "+4",
-    changeType: "neutral" as const,
-    icon: "ri-server-line",
-    color: "secondary" as const,
-    pinned: true,
-  },
-  {
-    id: "critical-assets",
-    title: "Critical Assets",
-    value: 18,
-    change: "-2",
-    changeType: "positive" as const,
-    icon: "ri-alarm-warning-line",
-    color: "accent" as const,
-    pinned: true,
-  },
-  {
-    id: "avg-health",
-    title: "Avg Asset Health",
-    value: "92%",
-    change: "+1.5%",
-    changeType: "positive" as const,
-    icon: "ri-heart-pulse-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "telemetry-channels",
-    title: "Live Telemetry Channels",
-    value: 156,
-    change: "+8",
-    changeType: "neutral" as const,
-    icon: "ri-signal-tower-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "downtime-impact",
-    title: "Downtime Impact",
-    value: "$28K",
-    change: "-12%",
-    changeType: "positive" as const,
-    icon: "ri-money-dollar-circle-line",
-    color: "secondary" as const,
-    pinned: false,
-  },
-  {
-    id: "rul-critical",
-    title: "RUL Critical",
-    value: 7,
-    change: "+1",
-    changeType: "negative" as const,
-    icon: "ri-hourglass-line",
-    color: "accent" as const,
-    pinned: false,
-  },
-];
 
 const assetActions = [
   { id: "add-asset", label: "Add Asset", icon: "ri-add-circle-line", color: "primary" as const },
@@ -81,14 +18,90 @@ const assetActions = [
 ];
 
 export default function AssetsPage() {
-  const [kpis, setKpis] = useState(assetKpis);
+  const { data: assets } = useAssets();
+  const { data: alerts } = useAlerts();
+  const { data: telemetry } = useTelemetry();
+
+  const avgHealth = assets.length
+    ? Math.round(assets.reduce((s, a) => s + (a.healthScore ?? 0), 0) / assets.length)
+    : 0;
+  const criticalAssets = assets.filter((a) => a.status === "offline" || a.status === "degraded").length;
+  const activeAlerts = alerts.filter((a) => a.status === "active").length;
+
+  const liveKpis = useMemo(() => [
+    {
+      id: "total-assets",
+      title: "Total Assets",
+      value: assets.length,
+      change: `${assets.length} registered`,
+      changeType: "neutral" as const,
+      icon: "ri-server-line",
+      color: "secondary" as const,
+      pinned: true,
+    },
+    {
+      id: "critical-assets",
+      title: "Offline / Degraded",
+      value: criticalAssets,
+      change: criticalAssets > 0 ? `${criticalAssets} need attention` : "All operational",
+      changeType: criticalAssets > 0 ? "negative" as const : "positive" as const,
+      icon: "ri-alarm-warning-line",
+      color: "accent" as const,
+      pinned: true,
+    },
+    {
+      id: "avg-health",
+      title: "Avg Asset Health",
+      value: `${avgHealth}%`,
+      change: avgHealth >= 90 ? "Healthy" : "Needs review",
+      changeType: avgHealth >= 90 ? "positive" as const : "negative" as const,
+      icon: "ri-heart-pulse-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "telemetry-channels",
+      title: "Live Telemetry Channels",
+      value: telemetry.length,
+      change: `${telemetry.length} active streams`,
+      changeType: "neutral" as const,
+      icon: "ri-signal-tower-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "active-alerts",
+      title: "Active Alerts",
+      value: activeAlerts,
+      change: activeAlerts > 0 ? `${activeAlerts} unresolved` : "No alerts",
+      changeType: activeAlerts > 0 ? "negative" as const : "positive" as const,
+      icon: "ri-error-warning-line",
+      color: "secondary" as const,
+      pinned: false,
+    },
+    {
+      id: "rul-critical",
+      title: "Under Maintenance",
+      value: assets.filter((a) => a.status === "maintenance").length,
+      change: "In service",
+      changeType: "neutral" as const,
+      icon: "ri-hourglass-line",
+      color: "accent" as const,
+      pinned: false,
+    },
+  ], [assets, criticalAssets, avgHealth, telemetry, activeAlerts]);
+
+  const [pinnedOverrides, setPinnedOverrides] = useState<Record<string, boolean>>({});
+  const kpis = liveKpis.map((k) => ({
+    ...k,
+    pinned: k.id in pinnedOverrides ? pinnedOverrides[k.id] : k.pinned,
+  }));
   const [viewMode, setViewMode] = useState("map");
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const handleTogglePin = (id: string) => {
-    setKpis((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
-    );
+    const current = kpis.find((k) => k.id === id);
+    setPinnedOverrides((prev) => ({ ...prev, [id]: !current?.pinned }));
   };
 
   const handleAction = (actionId: string) => {
