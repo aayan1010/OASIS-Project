@@ -38,6 +38,9 @@ export default function FinancePage() {
   );
   const budgetVsActual = totalBudget > 0 ? Math.round((totalOpexMtd / totalBudget) * 1000) / 10 : null;
   const latestCpu = costPerUnit.length ? costPerUnit[costPerUnit.length - 1] : null;
+  const latestCpuValue = latestCpu
+    ? ((latestCpu as { liftingCost?: number }).liftingCost ?? (latestCpu as { opsCost?: number }).opsCost ?? null)
+    : null;
   const totalCapex = useMemo(
     () => capexProjects.reduce((s, p) => s + (p.budget ?? 0), 0),
     [capexProjects],
@@ -77,7 +80,7 @@ export default function FinancePage() {
     {
       id: "cost-per-unit",
       title: "Cost Per Unit",
-      value: latestCpu ? `$${latestCpu.cost.toFixed(2)}` : "$42.50",
+      value: latestCpuValue !== null ? `$${latestCpuValue.toFixed(2)}` : "$42.50",
       change: "-1.2%",
       changeType: "positive" as const,
       icon: "ri-price-tag-3-line",

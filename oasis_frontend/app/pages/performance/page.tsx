@@ -90,6 +90,9 @@ export default function PerformancePage() {
   const totalBudget = useMemo(() => monthlyBudget.reduce((s, r) => s + (r.budget ?? 0), 0), [monthlyBudget]);
   const budgetPct = totalBudget > 0 ? Math.round((totalOpex / totalBudget) * 1000) / 10 : null;
   const latestCpu = costPerUnit.length ? costPerUnit[costPerUnit.length - 1] : null;
+  const latestCpuValue = latestCpu
+    ? ((latestCpu as { liftingCost?: number }).liftingCost ?? (latestCpu as { opsCost?: number }).opsCost ?? null)
+    : null;
   const avgAdherence = scheduleAdherence.length
     ? Math.round(scheduleAdherence.reduce((s, r) => s + r.adherence, 0) / scheduleAdherence.length)
     : null;
@@ -177,7 +180,7 @@ export default function PerformancePage() {
     {
       id: "cost-per-unit",
       title: "Cost Per Unit",
-      value: latestCpu ? `$${latestCpu.cost.toFixed(2)}` : "$42.50",
+      value: latestCpuValue !== null ? `$${latestCpuValue.toFixed(2)}` : "$42.50",
       change: "-1.2%",
       changeType: "positive",
       icon: "ri-price-tag-3-line",
