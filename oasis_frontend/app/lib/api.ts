@@ -100,7 +100,6 @@ export interface IncidentRecord {
 
 // ---------- Local Mock Fallbacks ----------
 const mockDrills: DrillRecord[] = [];
-const mockIncidents: IncidentRecord[] = [];
 
 // ---------- Read hooks (fall back to mocks on error) ----------
 
@@ -172,7 +171,7 @@ export function useLatestProductionPlan() {
 }
 
 export function useIncidents() {
-  return useCollection<IncidentRecord>("/incidents", mockIncidents);
+  return useCollection<IncidentRecord>("/incidents", []);
 }
 
 // ---------- Mutations ----------
@@ -212,11 +211,5 @@ export async function createDrill(drill: Partial<DrillRecord>) {
 }
 
 export async function createIncident(incident: Partial<IncidentRecord>) {
-  try {
-    return await mutate("/incidents", "POST", incident);
-  } catch {
-    // If the backend fails or isn't built yet, update the local cache so the UI works
-    mockIncidents.unshift(incident as IncidentRecord);
-    return incident;
-  }
+  return mutate("/incidents", "POST", incident);
 }
