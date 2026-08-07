@@ -61,6 +61,19 @@ export type CostPerUnitEntry = (typeof mockCostPerUnit)[number];
 export type CapexProject = (typeof mockCapexProjects)[number];
 export type ScheduleAdherenceEntry = (typeof mockScheduleAdherence)[number];
 
+export interface ProductionPlanRecord {
+  id: string;
+  siteId: string;
+  siteName: string;
+  targetOutput: number;
+  targetEfficiency: number;
+  effectiveFrom: string;
+  effectiveTo: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DrillRecord {
   id: string;
   drillNumber: string;
@@ -149,6 +162,15 @@ export function useDrills() {
   return useCollection<DrillRecord>("/drills", mockDrills);
 }
 
+export function useProductionPlans() {
+  return useCollection<ProductionPlanRecord>("/plans", []);
+}
+
+export function useLatestProductionPlan() {
+  const { data, isLive, isLoading, revalidate } = useProductionPlans();
+  return { data: data[0] ?? null, isLive, isLoading, revalidate };
+}
+
 export function useIncidents() {
   return useCollection<IncidentRecord>("/incidents", mockIncidents);
 }
@@ -173,6 +195,10 @@ export function updateWorkOrder(id: string, updates: Partial<WorkOrder>) {
 
 export function createCapexProject(project: Partial<CapexProject>) {
   return mutate("/finance/capex", "POST", project);
+}
+
+export async function createProductionPlan(plan: Omit<ProductionPlanRecord, "id" | "createdAt" | "updatedAt">) {
+  return mutate<ProductionPlanRecord>("/plans", "POST", plan);
 }
 
 export async function createDrill(drill: Partial<DrillRecord>) {

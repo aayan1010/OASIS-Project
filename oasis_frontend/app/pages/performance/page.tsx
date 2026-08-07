@@ -17,6 +17,7 @@ import LogOutputModal from "../../pages/performance/components/LogOutputModal";
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
 import { scheduleAdherence } from "../../mocks/production";
 import { revenueStreams } from "../../mocks/finance";
+import { useLatestProductionPlan, type ProductionPlanRecord } from "../../lib/api";
 
 const defaultThresholds: Record<string, AlertThreshold> = {
   "daily-output": { warning: 10000, critical: 8000, direction: "below", enabled: true },
@@ -148,7 +149,10 @@ export default function PerformancePage() {
   const [showUpdatePlan, setShowUpdatePlan] = useState(false);
   const [showLogOutput, setShowLogOutput] = useState(false);
   const [showExportData, setShowExportData] = useState(false);
-  const [savedPlan, setSavedPlan] = useState<ProductionPlan | null>(null);
+  // Latest plan is fetched from Firestore; revalidate after a new save.
+  const { data: savedPlan, revalidate: revalidatePlan } = useLatestProductionPlan();
+  // Allow temporarily hiding the plan card without deleting from Firestore.
+  const [planHidden, setPlanHidden] = useState(false);
 
   useEffect(() => {
     syncPageKpis("performance", kpis);
@@ -208,7 +212,7 @@ export default function PerformancePage() {
       <div className="px-6 py-6">
         {viewMode === "production" ? (
           <div className="space-y-4">
-            {savedPlan && (
+            {savedPlan && !planHidden && (
               <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -229,9 +233,9 @@ export default function PerformancePage() {
                       {savedPlan.effectiveFrom} → {savedPlan.effectiveTo}
                     </span>
                     <button
-                      onClick={() => setSavedPlan(null)}
+                      onClick={() => setPlanHidden(true)}
                       className="w-7 h-7 flex items-center justify-center rounded-md text-foreground-400 hover:text-foreground-600 hover:bg-background-100 transition-colors"
-                      title="Remove plan"
+                      title="Hide plan"
                     >
                       <i className="ri-close-line text-sm"></i>
                     </button>
@@ -345,7 +349,10 @@ export default function PerformancePage() {
         open={showUpdatePlan}
         onClose={() => setShowUpdatePlan(false)}
         currentPlan={savedPlan}
-        onSave={(plan) => setSavedPlan(plan)}
+        onSave={(_plan: ProductionPlanRecord) => {
+          setPlanHidden(false);
+          revalidatePlan();
+        }}
       />
       <LogOutputModal
         open={showLogOutput}

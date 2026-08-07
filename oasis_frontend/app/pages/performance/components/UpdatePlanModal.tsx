@@ -1,21 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { sites } from "../../../mocks/sites";
+import { createProductionPlan, type ProductionPlanRecord } from "../../../lib/api";
 
-export interface ProductionPlan {
-  siteId: string;
-  siteName: string;
-  targetOutput: number;
-  targetEfficiency: number;
-  effectiveFrom: string;
-  effectiveTo: string;
-  notes: string;
-}
+// Keep the local ProductionPlan shape for backwards compat with the page prop signature.
+export type ProductionPlan = Omit<ProductionPlanRecord, "id" | "createdAt" | "updatedAt">;
 
 interface UpdatePlanModalProps {
   open: boolean;
   onClose: () => void;
   currentPlan: ProductionPlan | null;
-  onSave: (plan: ProductionPlan) => void;
+  onSave: (plan: ProductionPlanRecord) => void;
 }
 
 export default function UpdatePlanModal({ open, onClose, currentPlan, onSave }: UpdatePlanModalProps) {
@@ -26,7 +20,7 @@ export default function UpdatePlanModal({ open, onClose, currentPlan, onSave }: 
 
   const activeSites = sites.filter((s) => s.status === "Active");
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const siteId = form.get("site") as string;
@@ -41,15 +35,19 @@ export default function UpdatePlanModal({ open, onClose, currentPlan, onSave }: 
       notes: (form.get("notes") as string) || "",
     };
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onSave(plan);
+    try {
+      const saved = await createProductionPlan(plan);
+      onSave(saved);
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);
         onClose();
       }, 1800);
-    }, 800);
+    } catch (err) {
+      console.error("Failed to save production plan:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
