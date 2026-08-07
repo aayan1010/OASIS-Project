@@ -171,6 +171,10 @@ export function updateWorkOrder(id: string, updates: Partial<WorkOrder>) {
   return mutate(`/maintenance/${id}`, "PATCH", updates);
 }
 
+export function generateLiveDemoData() {
+  return mutate("/demo/generate", "POST");
+}
+
 export function createCapexProject(project: Partial<CapexProject>) {
   return mutate("/finance/capex", "POST", project);
 }
