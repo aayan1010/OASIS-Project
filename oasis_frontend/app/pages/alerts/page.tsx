@@ -123,7 +123,6 @@ export default function AlertsPage() {
         onTogglePin={handleTogglePin}
         quickActions={[
           { id: "report-incident", label: "Report Incident", icon: "ri-alert-line", color: "accent" as const, onClick: () => setReportIncidentOpen(true) },
-          { id: "log-hazard", label: "Log Hazard", icon: "ri-error-warning-line", color: "primary" as const, onClick: () => setLogHazardOpen(true) },
           { id: "schedule-drill", label: "Schedule Drill", icon: "ri-calendar-line", color: "secondary" as const, onClick: () => setScheduleDrillOpen(true) },
         ]}
         viewToggle={{
@@ -293,9 +292,7 @@ export default function AlertsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-foreground-400">
-                            {safeFormatDate(alert.timestamp)}
-                          </span>
+                          <span className="text-xs text-foreground-400">{alert.timestamp.slice(0, 10)}</span>
                         </td>
                       </tr>
                     ))}
@@ -339,7 +336,6 @@ export default function AlertsPage() {
       </div>
 
       <ReportIncidentModal open={reportIncidentOpen} onClose={() => setReportIncidentOpen(false)} />
-      <LogHazardModal open={logHazardOpen} onClose={() => setLogHazardOpen(false)} />
       <ScheduleDrillModal open={scheduleDrillOpen} onClose={() => setScheduleDrillOpen(false)} />
     </>
   );

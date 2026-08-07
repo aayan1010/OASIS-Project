@@ -14,7 +14,6 @@ import RevenueStreams from "../../pages/finance/components/RevenueStreams";
 import CostMetrics from "../../pages/finance/components/CostMetrics";
 import UpdatePlanModal from "../../pages/performance/components/UpdatePlanModal";
 import LogOutputModal from "../../pages/performance/components/LogOutputModal";
-import CreateReportModal from "../../pages/performance/components/CreateReportModal";
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
 import { scheduleAdherence } from "../../mocks/production";
 import { revenueStreams } from "../../mocks/finance";
@@ -139,7 +138,6 @@ const performanceKpis: PerformanceKpi[] = [
 const performanceActions = [
   { id: "update-plan", label: "Update Plan", icon: "ri-edit-line", color: "primary" as const },
   { id: "log-output", label: "Log Output", icon: "ri-add-circle-line", color: "primary" as const },
-  { id: "create-report", label: "Create Report", icon: "ri-file-add-line", color: "primary" as const },
   { id: "export-data", label: "Export Data", icon: "ri-download-line", color: "secondary" as const },
 ];
 
@@ -149,8 +147,8 @@ export default function PerformancePage() {
   const { syncPageKpis, clearPageKpis } = useThresholdAlerts();
   const [showUpdatePlan, setShowUpdatePlan] = useState(false);
   const [showLogOutput, setShowLogOutput] = useState(false);
-  const [showCreateReport, setShowCreateReport] = useState(false);
   const [showExportData, setShowExportData] = useState(false);
+  const [savedPlan, setSavedPlan] = useState<ProductionPlan | null>(null);
 
   useEffect(() => {
     syncPageKpis("performance", kpis);
@@ -176,9 +174,6 @@ export default function PerformancePage() {
         break;
       case "log-output":
         setShowLogOutput(true);
-        break;
-      case "create-report":
-        setShowCreateReport(true);
         break;
       case "export-data":
         setShowExportData(true);
@@ -213,6 +208,71 @@ export default function PerformancePage() {
       <div className="px-6 py-6">
         {viewMode === "production" ? (
           <div className="space-y-4">
+            {savedPlan && (
+              <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-primary-100">
+                      <i className="ri-file-list-3-line text-primary-600 text-lg"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-heading font-semibold text-foreground-900">
+                        Current Production Plan
+                      </h3>
+                      <p className="text-xs text-foreground-500">
+                        {savedPlan.siteName} ({savedPlan.siteId})
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-foreground-400 bg-background-100 rounded-full px-3 py-1">
+                      {savedPlan.effectiveFrom} → {savedPlan.effectiveTo}
+                    </span>
+                    <button
+                      onClick={() => setSavedPlan(null)}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-foreground-400 hover:text-foreground-600 hover:bg-background-100 transition-colors"
+                      title="Remove plan"
+                    >
+                      <i className="ri-close-line text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-background-100/70 rounded-md p-3">
+                    <p className="text-xs text-foreground-500 mb-1">Target Daily Output</p>
+                    <p className="text-lg font-heading font-semibold text-foreground-900">
+                      {savedPlan.targetOutput.toLocaleString()} <span className="text-sm font-normal text-foreground-500">bbl/day</span>
+                    </p>
+                  </div>
+                  <div className="bg-background-100/70 rounded-md p-3">
+                    <p className="text-xs text-foreground-500 mb-1">Target Efficiency</p>
+                    <p className="text-lg font-heading font-semibold text-foreground-900">
+                      {savedPlan.targetEfficiency} <span className="text-sm font-normal text-foreground-500">%</span>
+                    </p>
+                  </div>
+                  <div className="bg-background-100/70 rounded-md p-3">
+                    <p className="text-xs text-foreground-500 mb-1">Plan Period</p>
+                    <p className="text-sm font-heading font-semibold text-foreground-900">
+                      {savedPlan.effectiveFrom} — {savedPlan.effectiveTo}
+                    </p>
+                    <p className="text-xs text-foreground-400 mt-0.5">
+                      {(() => {
+                        const from = new Date(savedPlan.effectiveFrom);
+                        const to = new Date(savedPlan.effectiveTo);
+                        const diff = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+                        return `${diff} days`;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                {savedPlan.notes && (
+                  <div className="mt-3 pt-3 border-t border-background-200/60">
+                    <p className="text-xs text-foreground-500 mb-1">Notes</p>
+                    <p className="text-sm text-foreground-700">{savedPlan.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
             <ProductionChart />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <YieldComparison />
@@ -284,14 +344,12 @@ export default function PerformancePage() {
       <UpdatePlanModal
         open={showUpdatePlan}
         onClose={() => setShowUpdatePlan(false)}
+        currentPlan={savedPlan}
+        onSave={(plan) => setSavedPlan(plan)}
       />
       <LogOutputModal
         open={showLogOutput}
         onClose={() => setShowLogOutput(false)}
-      />
-      <CreateReportModal
-        open={showCreateReport}
-        onClose={() => setShowCreateReport(false)}
       />
       <ExportReportModal
         open={showExportData}
