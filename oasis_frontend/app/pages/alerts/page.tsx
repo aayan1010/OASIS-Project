@@ -292,7 +292,7 @@ export default function AlertsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-foreground-400">{alert.timestamp.slice(0, 10)}</span>
+                          <span className="text-xs text-foreground-400">{safeFormatDate(alert.timestamp)}</span>
                         </td>
                       </tr>
                     ))}
