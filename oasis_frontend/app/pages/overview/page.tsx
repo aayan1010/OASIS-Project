@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
