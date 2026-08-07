@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
@@ -8,11 +8,19 @@ import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
 import { dashboardKpiData, quickActions, sectorOverview } from "../../mocks/dashboard";
 import { recentAlerts } from "../../mocks/alerts";
 import { assetLocations } from "../../mocks/assets";
-import { sites } from "../../mocks/sites";
-import { workOrders } from "../../mocks/maintenance";
+import { sites as mockSites } from "../../mocks/sites";
+import { workOrders as mockWorkOrders } from "../../mocks/maintenance";
 import ReportIncidentModal from "./components/ReportIncidentModal";
 import ExportReportModal from "./components/ExportReportModal";
 import AddCardModal, { type KpiItem } from "./components/AddCardModal";
+import {
+  useAlerts,
+  useAssets,
+  useWorkOrders,
+  useSites,
+  useIncidents,
+  useProductionRecords,
+} from "../../lib/api";
 
 const defaultThresholds: Record<string, AlertThreshold> = {
   "active-alerts": { warning: 15, critical: 20, direction: "above", enabled: true },
@@ -25,14 +33,99 @@ const defaultThresholds: Record<string, AlertThreshold> = {
   "cost-variance": { warning: 5, critical: 10, direction: "above", enabled: false },
 };
 
-const kpisWithThresholds = dashboardKpiData.map((kpi) => ({
+// Static KPI metadata (titles, icons, colors) — values are overridden with live data below.
+const kpiMeta = dashboardKpiData.map((kpi) => ({
   ...kpi,
   thresholds: defaultThresholds[kpi.id] || { warning: 0, critical: 0, direction: "below" as const, enabled: false },
 }));
 
 export default function Home() {
   const router = useRouter();
+
+  // Live data from Firestore via SWR.
+  const { data: liveAlerts } = useAlerts();
+  const { data: liveAssets } = useAssets();
+  const { data: liveWorkOrders } = useWorkOrders();
+  const { data: liveSites } = useSites();
+  const { data: liveIncidents } = useIncidents();
+  const { data: liveProductionRecords } = useProductionRecords();
+
+  // Derive KPI values from the most recent live data, falling back to mock values.
+  const liveKpiValues = useMemo(() => {
+    const activeAlerts = liveAlerts.filter((a) => a.status === "active").length;
+
+    const avgHealth = liveAssets.length
+      ? Math.round(liveAssets.reduce((s, a) => s + ((a as { healthScore?: number }).healthScore ?? 0), 0) / liveAssets.length * 10) / 10
+      : null;
+
+    // Resolve a record's date to an ISO string regardless of Firestore Timestamp vs string.
+    const toDateStr = (d: unknown): string => {
+      if (!d) return "";
+      if (typeof d === "string") return d;
+      if (typeof d === "object" && "_seconds" in (d as object)) {
+        return new Date((d as { _seconds: number })._seconds * 1000).toISOString().slice(0, 10);
+      }
+      return String(d);
+    };
+
+    // Latest date's total production, downtime, and energy across all sites.
+    const recordsWithDates = liveProductionRecords.map((r) => ({ ...r, _dateStr: toDateStr(r.date) }));
+    const sortedRecords = [...recordsWithDates].sort((a, b) => b._dateStr.localeCompare(a._dateStr));
+    const latestDate = sortedRecords[0]?._dateStr;
+    const latestDayRecords = latestDate ? sortedRecords.filter((r) => r._dateStr === latestDate) : [];
+    const totalProduction = latestDayRecords.length
+      ? latestDayRecords.reduce((s, r) => s + (r.actual_production ?? 0), 0)
+      : null;
+    const totalDowntime = latestDayRecords.length
+      ? Math.round(latestDayRecords.reduce((s, r) => s + (r.downtime_hours ?? 0), 0) * 10) / 10
+      : null;
+    const totalEnergy = latestDayRecords.length
+      ? Math.round(latestDayRecords.reduce((s, r) => s + (r.energy_used_kwh ?? 0), 0))
+      : null;
+
+    const openWOs = liveWorkOrders.filter((w) => w.status === "open").length;
+    const closedWOs = liveWorkOrders.filter((w) => w.status === "closed").length;
+
+    // MTD incidents: reported incidents this calendar month.
+    const now = new Date();
+    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const mtdIncidents = liveIncidents.filter((i) => (i.dateLogged ?? "").startsWith(monthPrefix)).length;
+
+    return { activeAlerts, avgHealth, totalProduction, totalDowntime, totalEnergy, openWOs, closedWOs, mtdIncidents };
+  }, [liveAlerts, liveAssets, liveProductionRecords, liveWorkOrders, liveIncidents]);
+
+  // Merge static metadata with live values.
+  const kpisWithThresholds = useMemo(() => kpiMeta.map((kpi) => {
+    switch (kpi.id) {
+      case "active-alerts":
+        return { ...kpi, value: liveKpiValues.activeAlerts };
+      case "system-health":
+        return { ...kpi, value: liveKpiValues.avgHealth !== null ? `${liveKpiValues.avgHealth}%` : kpi.value };
+      case "production-rate":
+        return { ...kpi, value: liveKpiValues.totalProduction !== null ? Math.round(liveKpiValues.totalProduction).toLocaleString() : kpi.value };
+      case "maintenance-backlog":
+        return { ...kpi, value: liveKpiValues.openWOs };
+      case "energy-output":
+        return { ...kpi, value: liveKpiValues.totalEnergy !== null ? liveKpiValues.totalEnergy.toLocaleString() : kpi.value };
+      case "safety-incidents":
+        return { ...kpi, value: liveKpiValues.mtdIncidents };
+      case "downtime":
+        return { ...kpi, value: liveKpiValues.totalDowntime !== null ? String(liveKpiValues.totalDowntime) : kpi.value };
+      default:
+        return kpi;
+    }
+  }), [liveKpiValues]);
+
   const [kpis, setKpis] = useState(kpisWithThresholds);
+
+  // Keep kpis in sync whenever live data changes, preserving per-card user overrides (pinned, thresholds).
+  useEffect(() => {
+    setKpis((prev) => kpisWithThresholds.map((liveKpi) => {
+      const existing = prev.find((p) => p.id === liveKpi.id);
+      if (!existing) return liveKpi;
+      return { ...liveKpi, pinned: existing.pinned, thresholds: existing.thresholds };
+    }));
+  }, [kpisWithThresholds]);
   const [activeSector, setActiveSector] = useState("upstream");
   const [showReportModal, setShowReportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -325,7 +418,7 @@ export default function Home() {
                     <i className="ri-building-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    {sites.length}
+                    {liveSites.length || mockSites.length}
                   </p>
                   <p className="text-xs text-foreground-500">Active Sites</p>
                 </div>
@@ -334,7 +427,7 @@ export default function Home() {
                     <i className="ri-cpu-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    {assetLocations.length}
+                    {liveAssets.length || assetLocations.length}
                   </p>
                   <p className="text-xs text-foreground-500">Total Assets</p>
                 </div>
@@ -343,7 +436,7 @@ export default function Home() {
                     <i className="ri-alarm-warning-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    {assetLocations.filter((a) => a.status === "offline" || a.status === "degraded").length}
+                    {liveAssets.filter((a) => (a as { status?: string }).status === "offline" || (a as { status?: string }).status === "degraded").length || assetLocations.filter((a) => a.status === "offline" || a.status === "degraded").length}
                   </p>
                   <p className="text-xs text-foreground-500">Assets at Risk</p>
                 </div>
@@ -352,7 +445,7 @@ export default function Home() {
                     <i className="ri-tools-line text-lg"></i>
                   </div>
                   <p className="text-lg font-heading font-semibold text-foreground-900">
-                    {workOrders.filter((w) => w.status === "closed").length}
+                    {liveKpiValues.closedWOs || mockWorkOrders.filter((w) => w.status === "closed").length}
                   </p>
                   <p className="text-xs text-foreground-500">WOs Completed</p>
                 </div>

@@ -61,6 +61,18 @@ export type CostPerUnitEntry = (typeof mockCostPerUnit)[number];
 export type CapexProject = (typeof mockCapexProjects)[number];
 export type ScheduleAdherenceEntry = (typeof mockScheduleAdherence)[number];
 
+export interface ProductionDailyRecord {
+  id: string;
+  site_id: string;
+  // Firestore stores date as a Timestamp object; the backend serialises it as { _seconds, _nanoseconds }.
+  date: string | { _seconds: number; _nanoseconds: number };
+  production_target: number;
+  actual_production: number;
+  efficiency_percentage: number;
+  downtime_hours: number;
+  energy_used_kwh: number;
+}
+
 export interface ProductionPlanRecord {
   id: string;
   siteId: string;
@@ -155,6 +167,14 @@ export function useCapexProjects() {
 
 export function useScheduleAdherence() {
   return useCollection<ScheduleAdherenceEntry>("/production/schedule-adherence", mockScheduleAdherence);
+}
+
+export function useDailyYield() {
+  return useCollection<ProductionDailyRecord>("/production/daily-yield", []);
+}
+
+export function useProductionRecords() {
+  return useCollection<ProductionDailyRecord>("/production/records", []);
 }
 
 export function useDrills() {

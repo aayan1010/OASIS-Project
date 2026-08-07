@@ -8,6 +8,7 @@ const COLLECTIONS = {
   dailyYield: 'productionDailyYield',
   throughputByAsset: 'productionThroughputByAsset',
   downtimeEvents: 'productionDowntimeEvents',
+  rawRecords: 'production_data',
 };
 
 async function getScheduleAdherence() {
@@ -30,6 +31,10 @@ async function getDowntimeEvents() {
   return getAll(COLLECTIONS.downtimeEvents);
 }
 
+async function getRawRecords() {
+  return getAll(COLLECTIONS.rawRecords);
+}
+
 async function createScheduleAdherenceEntry(entry) {
   return createDoc(COLLECTIONS.scheduleAdherence, entry);
 }
@@ -45,6 +50,7 @@ async function seedProductionData(data) {
 module.exports = {
   COLLECTIONS,
   getScheduleAdherence,
+  getRawRecords,
   getHourlyProduction,
   getDailyYield,
   getThroughputByAsset,
