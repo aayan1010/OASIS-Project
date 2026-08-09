@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { type CalendarEvent } from "../../../mocks/maintenance";
-import { useWorkOrders } from "../../../lib/api";
+import { useWorkOrders, useDrills } from "../../../lib/api";
+
+const drillTypeLabels: Record<string, string> = {
+  "fire-evacuation": "Fire Evacuation",
+  "hazmat-spill": "Hazmat Spill Response",
+  "confined-space": "Confined Space Rescue",
+  "medical-emergency": "Medical Emergency",
+  "active-shooter": "Active Threat / Lockdown",
+  "equipment-shutdown": "Emergency Equipment Shutdown",
+  earthquake: "Earthquake / Natural Disaster",
+};
 
 const eventTypeStyles: Record<string, { bg: string; text: string; label: string }> = {
   pm: { bg: "bg-primary-100", text: "text-primary-700", label: "PM" },
@@ -22,7 +32,8 @@ function getFirstDayOfMonth(year: number, month: number): number {
 
 export default function MaintenanceCalendar() {
   const { data: workOrders } = useWorkOrders();
-  const calendarEvents: CalendarEvent[] = workOrders.map((wo) => ({
+  const { data: drills } = useDrills();
+  const workOrderEvents: CalendarEvent[] = workOrders.map((wo) => ({
     id: `evt-${wo.id}`,
     title: `${wo.category}: ${wo.asset}`,
     date: wo.createdDate,
@@ -31,6 +42,17 @@ export default function MaintenanceCalendar() {
     assignee: wo.assignee,
     allDay: true,
   }));
+  const drillEvents: CalendarEvent[] = drills.map((d) => ({
+    id: `evt-${d.id}`,
+    title: `Drill: ${drillTypeLabels[d.type] ?? d.type}`,
+    date: d.date,
+    type: "training",
+    asset: d.site,
+    startTime: d.time,
+    description: d.notes,
+    allDay: !d.time,
+  }));
+  const calendarEvents: CalendarEvent[] = [...workOrderEvents, ...drillEvents];
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
