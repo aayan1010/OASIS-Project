@@ -15,6 +15,7 @@ import CostMetrics from "../../pages/finance/components/CostMetrics";
 import UpdatePlanModal from "../../pages/performance/components/UpdatePlanModal";
 import LogOutputModal from "../../pages/performance/components/LogOutputModal";
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
+import AddCardModal, { type KpiItem, type PremadeTemplate } from "../../pages/overview/components/AddCardModal";
 import {
   useLatestProductionPlan,
   useProductionRecords,
@@ -191,13 +192,54 @@ export default function PerformancePage() {
   ], [dailyOutput, totalRevenue, avgEfficiency, totalOpex, latestDowntime, budgetPct, avgAdherence, latestCpu]);
 
   const [kpiOverrides, setKpiOverrides] = useState<Record<string, Partial<PerformanceKpi>>>({});
-  const kpis: PerformanceKpi[] = liveKpis.map((k) => ({ ...k, ...kpiOverrides[k.id] }));
+  const [addedCards, setAddedCards] = useState<PerformanceKpi[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const kpis: PerformanceKpi[] = [...liveKpis, ...addedCards]
+    .map((k) => ({ ...k, ...kpiOverrides[k.id] }))
+    .filter((k) => !removedIds.includes(k.id));
   const setKpis = (updater: PerformanceKpi[] | ((prev: PerformanceKpi[]) => PerformanceKpi[])) => {
     const next = typeof updater === "function" ? updater(kpis) : updater;
     setKpiOverrides(next.reduce<Record<string, Partial<PerformanceKpi>>>((acc, k) => {
       acc[k.id] = { pinned: k.pinned, thresholds: k.thresholds };
       return acc;
     }, {}));
+  };
+
+  // Page-specific premade cards derived from live production/financial data.
+  const performancePremadeTemplates: PremadeTemplate[] = [
+    { id: "premade-daily-output", title: "Daily Output", subtitle: "Latest total production", icon: "ri-drop-line", color: "primary", compute: () => ({ value: dailyOutput !== null ? dailyOutput.toLocaleString() : "12,450", unit: "bbl/day" }) },
+    { id: "premade-avg-efficiency", title: "Average Efficiency", subtitle: "Latest yield vs target", icon: "ri-percent-line", color: "primary", compute: () => ({ value: avgEfficiency !== null ? `${avgEfficiency}%` : "97.2%" }) },
+    { id: "premade-downtime-hours", title: "Downtime Hours", subtitle: "Latest recorded downtime", icon: "ri-time-line", color: "accent", compute: () => ({ value: latestDowntime !== null ? String(latestDowntime) : "4.5", unit: "hrs" }) },
+    { id: "premade-revenue-mtd", title: "Revenue (MTD)", subtitle: "Total revenue across streams", icon: "ri-line-chart-line", color: "secondary", compute: () => ({ value: totalRevenue > 0 ? `$${(totalRevenue / 1_000_000).toFixed(1)}M` : "$3.8M" }) },
+    { id: "premade-opex-mtd", title: "OPEX (MTD)", subtitle: "Total operating expenditure", icon: "ri-money-dollar-circle-line", color: "primary", compute: () => ({ value: totalOpex > 0 ? `$${(totalOpex / 1_000_000).toFixed(2)}M` : "$1.24M" }) },
+    { id: "premade-budget-vs-actual", title: "Budget vs Actual", subtitle: "Actual spend as % of budget", icon: "ri-pie-chart-line", color: "primary", compute: () => ({ value: budgetPct !== null ? `${budgetPct}%` : "97.7%" }) },
+    { id: "premade-schedule-adherence", title: "Schedule Adherence", subtitle: "Mean adherence across records", icon: "ri-calendar-check-line", color: "secondary", compute: () => ({ value: avgAdherence !== null ? `${avgAdherence}%` : "94%" }) },
+    { id: "premade-cost-per-unit", title: "Cost Per Unit", subtitle: "Latest cost per barrel", icon: "ri-price-tag-3-line", color: "secondary", compute: () => ({ value: latestCpuValue !== null ? `$${latestCpuValue.toFixed(2)}` : "$42.50" }) },
+  ];
+
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
+
+  const handleAddCard = (kpi: KpiItem) => {
+    const card: PerformanceKpi = {
+      id: kpi.id,
+      title: kpi.title,
+      value: kpi.value,
+      unit: kpi.unit,
+      change: kpi.change,
+      changeType: kpi.changeType ?? "neutral",
+      icon: kpi.icon,
+      color: kpi.color ?? "primary",
+      pinned: true,
+      thresholds: kpi.thresholds ?? { warning: 0, critical: 0, direction: "above", enabled: false },
+    };
+    setAddedCards((prev) => (prev.some((k) => k.id === card.id) ? prev : [...prev, card]));
+    setRemovedIds((prev) => prev.filter((i) => i !== card.id));
+    setShowAddCardModal(false);
+  };
+
+  const handleRemoveCard = (id: string) => {
+    setAddedCards((prev) => prev.filter((k) => k.id !== id));
+    setRemovedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
   const [viewMode, setViewMode] = useState("production");
@@ -251,6 +293,8 @@ export default function PerformancePage() {
         kpis={kpis}
         onTogglePin={handleTogglePin}
         onThresholdsChange={handleThresholdsChange}
+        onAddCard={() => setShowAddCardModal(true)}
+        onRemoveCard={handleRemoveCard}
         quickActions={performanceActions.map((a) => ({
           ...a,
           onClick: () => handleQuickAction(a.id),
@@ -417,6 +461,13 @@ export default function PerformancePage() {
       <ExportReportModal
         open={showExportData}
         onClose={() => setShowExportData(false)}
+      />
+      <AddCardModal
+        open={showAddCardModal}
+        onClose={() => setShowAddCardModal(false)}
+        existingIds={kpis.map((k) => k.id)}
+        onAdd={handleAddCard}
+        premadeTemplates={performancePremadeTemplates}
       />
     </>
   );

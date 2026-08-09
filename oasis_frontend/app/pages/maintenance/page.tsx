@@ -6,6 +6,7 @@ import MaintenanceCalendar from "./components/MaintenanceCalendar";
 import KanbanBoard from "./components/KanbanBoard";
 import CreateWorkOrderModal from "./components/CreateWorkOrderModal";
 import SchedulePMModal from "./components/SchedulePMModal";
+import AddCardModal, { type KpiItem, type PremadeTemplate } from "../../pages/overview/components/AddCardModal";
 import { useWorkOrders, useProductionRecords } from "../../lib/api";
 
 const maintenanceActions = [
@@ -41,7 +42,9 @@ export default function MaintenancePage() {
   const mtdCost = workOrders.reduce((s, wo) => s + ((wo as { estimatedCost?: number }).estimatedCost ?? 0), 0);
 
   const [pinnedIds, setPinnedIds] = useState<string[]>(["total-work-orders", "overdue-tasks", "maintenance-cost", "pm-compliance"]);
-  const kpis = [
+  const [addedCards, setAddedCards] = useState<KpiItem[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const baseKpis = [
     {
       id: "total-work-orders",
       title: "Total Work Orders",
@@ -96,15 +99,46 @@ export default function MaintenancePage() {
       icon: "ri-team-line",
       color: "secondary" as const,
     },
-  ].map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
+  ];
+  const kpis = [...baseKpis, ...addedCards]
+    .filter((k) => !removedIds.includes(k.id))
+    .map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
+
+  // Page-specific premade cards derived from live work-order and downtime data.
+  const closedWorkOrders = workOrders.filter((wo) => wo.status === "closed").length;
+  const maintenancePremadeTemplates: PremadeTemplate[] = [
+    { id: "premade-total-wo", title: "Total Work Orders", subtitle: "All work orders", icon: "ri-file-list-3-line", color: "secondary", compute: () => ({ value: workOrders.length }) },
+    { id: "premade-open-wo", title: "Open Work Orders", subtitle: "Pending maintenance tasks", icon: "ri-folder-open-line", color: "secondary", compute: () => ({ value: openWorkOrders }) },
+    { id: "premade-in-progress-wo", title: "WOs In Progress", subtitle: "Currently being worked on", icon: "ri-loader-4-line", color: "primary", compute: () => ({ value: inProgressWorkOrders }) },
+    { id: "premade-closed-wo", title: "Closed Work Orders", subtitle: "Completed maintenance tasks", icon: "ri-checkbox-circle-line", color: "primary", compute: () => ({ value: closedWorkOrders }) },
+    { id: "premade-overdue-wo", title: "Overdue Tasks", subtitle: "Open work orders past due", icon: "ri-time-line", color: "accent", compute: () => ({ value: overdueWorkOrders }) },
+    { id: "premade-mtd-cost", title: "MTD Maintenance Cost", subtitle: "Estimated cost across work orders", icon: "ri-money-dollar-circle-line", color: "primary", compute: () => ({ value: mtdCost > 0 ? `$${Math.round(mtdCost / 1000)}K` : "—" }) },
+    { id: "premade-mtd-downtime", title: "Downtime Hours (MTD)", subtitle: "Downtime this month", icon: "ri-timer-flash-line", color: "primary", compute: () => ({ value: `${Math.round(mtdDowntime * 10) / 10} hrs` }) },
+    { id: "premade-avg-wo-hours", title: "Avg Actual Hours / WO", subtitle: "Mean actual hours per work order", icon: "ri-hourglass-line", color: "secondary", compute: () => ({ value: workOrders.length ? `${Math.round(workOrders.reduce((s, w) => s + ((w as { actualHours?: number }).actualHours ?? 0), 0) / workOrders.length * 10) / 10} hrs` : "—" }) },
+  ];
+
   const [viewMode, setViewMode] = useState("calendar");
   const [workOrderModalOpen, setWorkOrderModalOpen] = useState(false);
   const [pmModalOpen, setPmModalOpen] = useState(false);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setPinnedIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
+  };
+
+  const handleAddCard = (kpi: KpiItem) => {
+    setAddedCards((prev) => (prev.some((k) => k.id === kpi.id) ? prev : [...prev, kpi]));
+    setPinnedIds((prev) => (prev.includes(kpi.id) ? prev : [...prev, kpi.id]));
+    setRemovedIds((prev) => prev.filter((i) => i !== kpi.id));
+    setShowAddCardModal(false);
+  };
+
+  const handleRemoveCard = (id: string) => {
+    setAddedCards((prev) => prev.filter((k) => k.id !== id));
+    setRemovedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setPinnedIds((prev) => prev.filter((i) => i !== id));
   };
 
   const handleAction = (actionId: string) => {
@@ -125,6 +159,8 @@ export default function MaintenancePage() {
         subtitle="Work order management, preventive maintenance, and asset servicing"
         kpis={kpis}
         onTogglePin={handleTogglePin}
+        onAddCard={() => setShowAddCardModal(true)}
+        onRemoveCard={handleRemoveCard}
         quickActions={maintenanceActions.map((a) => ({
           ...a,
           onClick: () => handleAction(a.id),
@@ -148,6 +184,13 @@ export default function MaintenancePage() {
       </div>
       <CreateWorkOrderModal open={workOrderModalOpen} onClose={() => setWorkOrderModalOpen(false)} />
       <SchedulePMModal open={pmModalOpen} onClose={() => setPmModalOpen(false)} />
+      <AddCardModal
+        open={showAddCardModal}
+        onClose={() => setShowAddCardModal(false)}
+        existingIds={kpis.map((k) => k.id)}
+        onAdd={handleAddCard}
+        premadeTemplates={maintenancePremadeTemplates}
+      />
     </>
   );
 }
