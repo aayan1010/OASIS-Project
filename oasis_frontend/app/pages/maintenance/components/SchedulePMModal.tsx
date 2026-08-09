@@ -4,6 +4,8 @@ import { useAssets, useSites, useWorkOrders, createWorkOrder } from "../../../li
 interface SchedulePMModalProps {
   open: boolean;
   onClose: () => void;
+  /** Called with the scheduled date so the calendar can jump to that month. */
+  onScheduled?: (date: string) => void;
 }
 
 const technicians = [
@@ -28,7 +30,7 @@ function getInitials(name: string): string {
   return name.split(" ").map((p) => p[0]).join("").toUpperCase();
 }
 
-export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps) {
+export default function SchedulePMModal({ open, onClose, onScheduled }: SchedulePMModalProps) {
   const { data: assetLocations } = useAssets();
   const { data: sites } = useSites();
   const { revalidate } = useWorkOrders();
@@ -75,9 +77,9 @@ export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps)
         priority,
         assignee,
         assigneeInitials: getInitials(assignee),
+        // The calendar schedules events by dueDate, so the chosen date drives placement.
         dueDate: scheduledDate,
-        // MaintenanceCalendar maps events using createdDate, so we tie the selected date here
-        createdDate: scheduledDate, 
+        createdDate: new Date().toISOString().slice(0, 10),
         estimatedHours: Number.isFinite(estimatedDuration) ? estimatedDuration : 2,
         actualHours: 0,
         category: "Preventative Maintenance",
@@ -85,6 +87,7 @@ export default function SchedulePMModal({ open, onClose }: SchedulePMModalProps)
       });
 
       await revalidate();
+      if (scheduledDate) onScheduled?.(scheduledDate);
       setSubmitted(true);
       form.reset();
     } catch {

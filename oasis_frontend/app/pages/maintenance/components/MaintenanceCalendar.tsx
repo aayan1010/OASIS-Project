@@ -1,8 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type CalendarEvent } from "../../../mocks/maintenance";
 import { useWorkOrders, useDrills } from "../../../lib/api";
+
+// Normalises any date shape the backend or mocks may return into a
+// "YYYY-MM-DD" key so events always match the correct calendar day cell.
+// Handles plain date strings, full ISO datetimes, Date objects and the
+// Firestore Timestamp shape ({ _seconds, _nanoseconds }).
+function toDateKey(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value instanceof Date) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(
+      value.getDate(),
+    ).padStart(2, "0")}`;
+  }
+  if (typeof value === "object" && "_seconds" in (value as object)) {
+    return new Date((value as { _seconds: number })._seconds * 1000).toISOString().slice(0, 10);
+  }
+  return "";
+}
 
 const drillTypeLabels: Record<string, string> = {
   "fire-evacuation": "Fire Evacuation",
@@ -30,13 +48,18 @@ function getFirstDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 1).getDay();
 }
 
-export default function MaintenanceCalendar() {
+interface MaintenanceCalendarProps {
+  /** When set, the calendar jumps to this date's month and highlights it. */
+  focusDate?: string;
+}
+
+export default function MaintenanceCalendar({ focusDate }: MaintenanceCalendarProps) {
   const { data: workOrders } = useWorkOrders();
   const { data: drills } = useDrills();
   const workOrderEvents: CalendarEvent[] = workOrders.map((wo) => ({
     id: `evt-${wo.id}`,
     title: `${wo.category}: ${wo.asset}`,
-    date: wo.dueDate || wo.createdDate,
+    date: toDateKey(wo.dueDate) || toDateKey(wo.createdDate),
     type: wo.category === "Preventative Maintenance" ? "pm" : wo.category === "Inspection" ? "inspection" : "wo",
     asset: wo.asset,
     assignee: wo.assignee,
@@ -45,7 +68,7 @@ export default function MaintenanceCalendar() {
   const drillEvents: CalendarEvent[] = drills.map((d) => ({
     id: `evt-${d.id}`,
     title: `Drill: ${drillTypeLabels[d.type] ?? d.type}`,
-    date: d.date,
+    date: toDateKey(d.date),
     type: "training",
     asset: d.site,
     startTime: d.time,
@@ -57,6 +80,17 @@ export default function MaintenanceCalendar() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+
+  // Jump to the month of a newly scheduled item so it is immediately visible
+  // on the date that was chosen, instead of staying on the current month.
+  const focusKey = toDateKey(focusDate);
+  useEffect(() => {
+    if (!focusKey) return;
+    const [y, m] = focusKey.split("-").map(Number);
+    if (!y || !m) return;
+    setCurrentYear(y);
+    setCurrentMonth(m - 1);
+  }, [focusKey]);
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -176,13 +210,14 @@ export default function MaintenanceCalendar() {
             const safeDateStr = cell.dateStr ?? "";
             const cellEvents = getEventsForDate(safeDateStr);
             const isToday = safeDateStr === todayStr;
+            const isFocused = !!focusKey && safeDateStr === focusKey;
 
             return (
               <div
                 key={cell.key}
                 className={`min-h-[120px] border-r border-b border-background-100/50 p-2 transition-colors hover:bg-background-100/50 ${
                   isToday ? "bg-primary-50/30" : ""
-                }`}
+                } ${isFocused ? "ring-2 ring-inset ring-primary-400 bg-primary-50/40" : ""}`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span

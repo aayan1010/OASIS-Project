@@ -4,6 +4,8 @@ import { useAssets, useSites, useWorkOrders, createWorkOrder } from "../../../li
 interface CreateWorkOrderModalProps {
   open: boolean;
   onClose: () => void;
+  /** Called with the due date so the calendar can jump to that month. */
+  onScheduled?: (date: string) => void;
 }
 
 const technicians = [
@@ -25,7 +27,7 @@ function getInitials(name: string): string {
   return name.split(" ").map((p) => p[0]).join("").toUpperCase();
 }
 
-export default function CreateWorkOrderModal({ open, onClose }: CreateWorkOrderModalProps) {
+export default function CreateWorkOrderModal({ open, onClose, onScheduled }: CreateWorkOrderModalProps) {
   const { data: assetLocations } = useAssets();
   const { data: sites } = useSites();
   const { revalidate } = useWorkOrders();
@@ -76,6 +78,7 @@ export default function CreateWorkOrderModal({ open, onClose }: CreateWorkOrderM
         tags: [typeLabels[woType] ?? woType],
       });
       await revalidate();
+      if (dueDate) onScheduled?.(dueDate);
       setSubmitted(true);
       form.reset();
     } catch {
