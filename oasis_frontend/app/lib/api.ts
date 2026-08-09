@@ -119,7 +119,29 @@ export interface IncidentRecord {
 }
 
 // ---------- Local Mock Fallbacks ----------
-const mockDrills: DrillRecord[] = [];
+// When the Express backend is unreachable, drills are persisted to localStorage
+// so scheduled drills survive page reloads and stay visible on the calendar.
+const DRILLS_STORAGE_KEY = "oasis:drills";
+
+function getLocalDrills(): DrillRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(DRILLS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as DrillRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addLocalDrill(drill: DrillRecord) {
+  if (typeof window === "undefined") return;
+  try {
+    const drills = getLocalDrills();
+    window.localStorage.setItem(DRILLS_STORAGE_KEY, JSON.stringify([drill, ...drills]));
+  } catch {
+    // Ignore storage failures (e.g. private mode / quota).
+  }
+}
 
 // ---------- Read hooks (fall back to mocks on error) ----------
 
@@ -186,7 +208,7 @@ export function useProductionRecords() {
 }
 
 export function useDrills() {
-  return useCollection<DrillRecord>("/drills", mockDrills);
+  return useCollection<DrillRecord>("/drills", getLocalDrills());
 }
 
 export function useProductionPlans() {
@@ -252,8 +274,9 @@ export async function createDrill(drill: Partial<DrillRecord>) {
   try {
     return await mutate("/drills", "POST", drill);
   } catch {
-    // If the backend fails or isn't built yet, update the local cache so the UI works
-    mockDrills.unshift(drill as DrillRecord);
+    // If the backend is unreachable, persist to localStorage so the drill
+    // survives reloads and stays visible on the maintenance calendar.
+    addLocalDrill(drill as DrillRecord);
     return drill;
   }
 }
