@@ -123,10 +123,18 @@ export default function Home() {
   type KpiOverrides = Record<string, { pinned?: boolean; thresholds?: AlertThreshold }>;
   const [kpiOverrides, setKpiOverrides] = useState<KpiOverrides>({});
 
-  // Merge live-derived values with any per-card user overrides.
+  // User-added cards (from AddCardModal) and ids of removed base cards. These live
+  // separately from the live-data memo chain so added cards actually persist.
+  const [addedCards, setAddedCards] = useState<KpiItem[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+
+  // Merge live-derived values with any per-card user overrides, plus user-added cards.
   const kpis = useMemo(
-    () => kpisWithThresholds.map((kpi) => ({ ...kpi, ...kpiOverrides[kpi.id] })),
-    [kpisWithThresholds, kpiOverrides],
+    () =>
+      [...kpisWithThresholds, ...addedCards]
+        .filter((kpi) => !removedIds.includes(kpi.id))
+        .map((kpi) => ({ ...kpi, ...kpiOverrides[kpi.id] })),
+    [kpisWithThresholds, addedCards, removedIds, kpiOverrides],
   );
 
   // setKpis is called by child components that update the whole array (e.g. AddCardModal,
@@ -158,15 +166,14 @@ export default function Home() {
   };
 
   const handleAddCard = (kpi: KpiItem) => {
-    setKpis((prev) => {
-      if (prev.some((k) => k.id === kpi.id)) return prev;
-      return [...prev, kpi];
-    });
+    setAddedCards((prev) => (prev.some((k) => k.id === kpi.id) ? prev : [...prev, kpi]));
+    setRemovedIds((prev) => prev.filter((i) => i !== kpi.id));
     setShowAddCardModal(false);
   };
 
   const handleRemoveCard = (id: string) => {
-    setKpis((prev) => prev.filter((k) => k.id !== id));
+    setAddedCards((prev) => prev.filter((k) => k.id !== id));
+    setRemovedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
   const handleThresholdsChange = (id: string, t: AlertThreshold) => {
