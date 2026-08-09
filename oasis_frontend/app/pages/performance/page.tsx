@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import TopOverview from "../../components/feature/TopOverview";
 import type { AlertThreshold } from "../../components/feature/ThresholdSettings";
 import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
@@ -14,10 +14,17 @@ import RevenueStreams from "../../pages/finance/components/RevenueStreams";
 import CostMetrics from "../../pages/finance/components/CostMetrics";
 import UpdatePlanModal from "../../pages/performance/components/UpdatePlanModal";
 import LogOutputModal from "../../pages/performance/components/LogOutputModal";
-import CreateReportModal from "../../pages/performance/components/CreateReportModal";
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
-import { scheduleAdherence } from "../../mocks/production";
-import { revenueStreams } from "../../mocks/finance";
+import AddCardModal, { type KpiItem, type PremadeTemplate } from "../../pages/overview/components/AddCardModal";
+import {
+  useLatestProductionPlan,
+  useProductionRecords,
+  useRevenueStreams,
+  useMonthlyBudget,
+  useCostPerUnit,
+  useScheduleAdherence,
+  type ProductionPlanRecord,
+} from "../../lib/api";
 
 const defaultThresholds: Record<string, AlertThreshold> = {
   "daily-output": { warning: 10000, critical: 8000, direction: "below", enabled: true },
@@ -43,114 +50,207 @@ interface PerformanceKpi {
   thresholds: AlertThreshold;
 }
 
-const performanceKpis: PerformanceKpi[] = [
-  {
-    id: "daily-output",
-    title: "Daily Output",
-    value: "12,450",
-    unit: "bbl/day",
-    change: "+2.1%",
-    changeType: "positive",
-    icon: "ri-drop-line",
-    color: "primary",
-    pinned: true,
-    thresholds: defaultThresholds["daily-output"],
-  },
-  {
-    id: "revenue-mtd",
-    title: "Revenue (MTD)",
-    value: "$3.8M",
-    change: "+4.1%",
-    changeType: "positive",
-    icon: "ri-line-chart-line",
-    color: "secondary",
-    pinned: true,
-    thresholds: defaultThresholds["revenue-mtd"],
-  },
-  {
-    id: "yield-vs-target",
-    title: "Yield vs Target",
-    value: "97.2%",
-    change: "+0.8%",
-    changeType: "positive",
-    icon: "ri-percent-line",
-    color: "primary",
-    pinned: true,
-    thresholds: defaultThresholds["yield-vs-target"],
-  },
-  {
-    id: "opex-mtd",
-    title: "OPEX (MTD)",
-    value: "$1.24M",
-    change: "-2.3%",
-    changeType: "positive",
-    icon: "ri-money-dollar-circle-line",
-    color: "primary",
-    pinned: true,
-    thresholds: defaultThresholds["opex-mtd"],
-  },
-  {
-    id: "downtime-hours",
-    title: "Downtime Hours",
-    value: "4.5",
-    unit: "hrs",
-    change: "-1.2",
-    changeType: "positive",
-    icon: "ri-time-line",
-    color: "accent",
-    pinned: false,
-    thresholds: defaultThresholds["downtime-hours"],
-  },
-  {
-    id: "budget-vs-actual",
-    title: "Budget vs Actual",
-    value: "97.7%",
-    change: "Under budget",
-    changeType: "positive",
-    icon: "ri-pie-chart-line",
-    color: "primary",
-    pinned: false,
-    thresholds: defaultThresholds["budget-vs-actual"],
-  },
-  {
-    id: "schedule-adherence",
-    title: "Schedule Adherence",
-    value: "94%",
-    change: "+3%",
-    changeType: "positive",
-    icon: "ri-calendar-check-line",
-    color: "secondary",
-    pinned: false,
-    thresholds: defaultThresholds["schedule-adherence"],
-  },
-  {
-    id: "cost-per-unit",
-    title: "Cost Per Unit",
-    value: "$42.50",
-    change: "-1.2%",
-    changeType: "positive",
-    icon: "ri-price-tag-3-line",
-    color: "secondary",
-    pinned: false,
-    thresholds: defaultThresholds["cost-per-unit"],
-  },
-];
+
 
 const performanceActions = [
   { id: "update-plan", label: "Update Plan", icon: "ri-edit-line", color: "primary" as const },
   { id: "log-output", label: "Log Output", icon: "ri-add-circle-line", color: "primary" as const },
-  { id: "create-report", label: "Create Report", icon: "ri-file-add-line", color: "primary" as const },
   { id: "export-data", label: "Export Data", icon: "ri-download-line", color: "secondary" as const },
 ];
 
+function toDateStr(d: unknown): string {
+  if (!d) return "";
+  if (typeof d === "string") return d;
+  if (typeof d === "object" && "_seconds" in (d as object))
+    return new Date((d as { _seconds: number })._seconds * 1000).toISOString().slice(0, 10);
+  return String(d);
+}
+
 export default function PerformancePage() {
-  const [kpis, setKpis] = useState<PerformanceKpi[]>(performanceKpis);
+  const { data: productionRecords } = useProductionRecords();
+  const { data: revenueStreams } = useRevenueStreams();
+  const { data: monthlyBudget } = useMonthlyBudget();
+  const { data: costPerUnit } = useCostPerUnit();
+  const { data: scheduleAdherence } = useScheduleAdherence();
+
+  // Latest day's production totals.
+  const { dailyOutput, avgEfficiency, latestDowntime } = useMemo(() => {
+    const sorted = [...productionRecords].sort((a, b) => toDateStr(b.date).localeCompare(toDateStr(a.date)));
+    const latestDate = toDateStr(sorted[0]?.date);
+    const latest = latestDate ? sorted.filter((r) => toDateStr(r.date) === latestDate) : [];
+    if (!latest.length) return { dailyOutput: null, avgEfficiency: null, latestDowntime: null };
+    return {
+      dailyOutput: Math.round(latest.reduce((s, r) => s + (r.actual_production ?? 0), 0)),
+      avgEfficiency: Math.round(latest.reduce((s, r) => s + (r.efficiency_percentage ?? 0), 0) / latest.length * 10) / 10,
+      latestDowntime: Math.round(latest.reduce((s, r) => s + (r.downtime_hours ?? 0), 0) * 10) / 10,
+    };
+  }, [productionRecords]);
+
+  const totalRevenue = useMemo(() => revenueStreams.reduce((s, r) => s + r.amount, 0), [revenueStreams]);
+  const totalOpex = useMemo(() => monthlyBudget.reduce((s, r) => s + (r.actual ?? r.budget ?? 0), 0), [monthlyBudget]);
+  const totalBudget = useMemo(() => monthlyBudget.reduce((s, r) => s + (r.budget ?? 0), 0), [monthlyBudget]);
+  const budgetPct = totalBudget > 0 ? Math.round((totalOpex / totalBudget) * 1000) / 10 : null;
+  const latestCpu = costPerUnit.length ? costPerUnit[costPerUnit.length - 1] : null;
+  const latestCpuValue = latestCpu
+    ? ((latestCpu as { liftingCost?: number }).liftingCost ?? (latestCpu as { opsCost?: number }).opsCost ?? null)
+    : null;
+  const avgAdherence = scheduleAdherence.length
+    ? Math.round(scheduleAdherence.reduce((s, r) => s + r.adherence, 0) / scheduleAdherence.length)
+    : null;
+
+  const liveKpis = useMemo((): PerformanceKpi[] => [
+    {
+      id: "daily-output",
+      title: "Daily Output",
+      value: dailyOutput !== null ? dailyOutput.toLocaleString() : "12,450",
+      unit: "bbl/day",
+      change: "+2.1%",
+      changeType: "positive",
+      icon: "ri-drop-line",
+      color: "primary",
+      pinned: true,
+      thresholds: defaultThresholds["daily-output"],
+    },
+    {
+      id: "revenue-mtd",
+      title: "Revenue (MTD)",
+      value: totalRevenue > 0 ? `$${(totalRevenue / 1_000_000).toFixed(1)}M` : "$3.8M",
+      change: "+4.1%",
+      changeType: "positive",
+      icon: "ri-line-chart-line",
+      color: "secondary",
+      pinned: true,
+      thresholds: defaultThresholds["revenue-mtd"],
+    },
+    {
+      id: "yield-vs-target",
+      title: "Yield vs Target",
+      value: avgEfficiency !== null ? `${avgEfficiency}%` : "97.2%",
+      change: "+0.8%",
+      changeType: "positive",
+      icon: "ri-percent-line",
+      color: "primary",
+      pinned: true,
+      thresholds: defaultThresholds["yield-vs-target"],
+    },
+    {
+      id: "opex-mtd",
+      title: "OPEX (MTD)",
+      value: totalOpex > 0 ? `$${(totalOpex / 1_000_000).toFixed(2)}M` : "$1.24M",
+      change: "-2.3%",
+      changeType: "positive",
+      icon: "ri-money-dollar-circle-line",
+      color: "primary",
+      pinned: true,
+      thresholds: defaultThresholds["opex-mtd"],
+    },
+    {
+      id: "downtime-hours",
+      title: "Downtime Hours",
+      value: latestDowntime !== null ? String(latestDowntime) : "4.5",
+      unit: "hrs",
+      change: "-1.2",
+      changeType: "positive",
+      icon: "ri-time-line",
+      color: "accent",
+      pinned: false,
+      thresholds: defaultThresholds["downtime-hours"],
+    },
+    {
+      id: "budget-vs-actual",
+      title: "Budget vs Actual",
+      value: budgetPct !== null ? `${budgetPct}%` : "97.7%",
+      change: budgetPct !== null && budgetPct < 100 ? "Under budget" : "Over budget",
+      changeType: budgetPct !== null && budgetPct < 100 ? "positive" : "negative",
+      icon: "ri-pie-chart-line",
+      color: "primary",
+      pinned: false,
+      thresholds: defaultThresholds["budget-vs-actual"],
+    },
+    {
+      id: "schedule-adherence",
+      title: "Schedule Adherence",
+      value: avgAdherence !== null ? `${avgAdherence}%` : "94%",
+      change: "+3%",
+      changeType: "positive",
+      icon: "ri-calendar-check-line",
+      color: "secondary",
+      pinned: false,
+      thresholds: defaultThresholds["schedule-adherence"],
+    },
+    {
+      id: "cost-per-unit",
+      title: "Cost Per Unit",
+      value: latestCpuValue !== null ? `$${latestCpuValue.toFixed(2)}` : "$42.50",
+      change: "-1.2%",
+      changeType: "positive",
+      icon: "ri-price-tag-3-line",
+      color: "secondary",
+      pinned: false,
+      thresholds: defaultThresholds["cost-per-unit"],
+    },
+  ], [dailyOutput, totalRevenue, avgEfficiency, totalOpex, latestDowntime, budgetPct, avgAdherence, latestCpu]);
+
+  const [kpiOverrides, setKpiOverrides] = useState<Record<string, Partial<PerformanceKpi>>>({});
+  const [addedCards, setAddedCards] = useState<PerformanceKpi[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const kpis: PerformanceKpi[] = [...liveKpis, ...addedCards]
+    .map((k) => ({ ...k, ...kpiOverrides[k.id] }))
+    .filter((k) => !removedIds.includes(k.id));
+  const setKpis = (updater: PerformanceKpi[] | ((prev: PerformanceKpi[]) => PerformanceKpi[])) => {
+    const next = typeof updater === "function" ? updater(kpis) : updater;
+    setKpiOverrides(next.reduce<Record<string, Partial<PerformanceKpi>>>((acc, k) => {
+      acc[k.id] = { pinned: k.pinned, thresholds: k.thresholds };
+      return acc;
+    }, {}));
+  };
+
+  // Page-specific premade cards derived from live production/financial data.
+  const performancePremadeTemplates: PremadeTemplate[] = [
+    { id: "premade-daily-output", title: "Daily Output", subtitle: "Latest total production", icon: "ri-drop-line", color: "primary", compute: () => ({ value: dailyOutput !== null ? dailyOutput.toLocaleString() : "12,450", unit: "bbl/day" }) },
+    { id: "premade-avg-efficiency", title: "Average Efficiency", subtitle: "Latest yield vs target", icon: "ri-percent-line", color: "primary", compute: () => ({ value: avgEfficiency !== null ? `${avgEfficiency}%` : "97.2%" }) },
+    { id: "premade-downtime-hours", title: "Downtime Hours", subtitle: "Latest recorded downtime", icon: "ri-time-line", color: "accent", compute: () => ({ value: latestDowntime !== null ? String(latestDowntime) : "4.5", unit: "hrs" }) },
+    { id: "premade-revenue-mtd", title: "Revenue (MTD)", subtitle: "Total revenue across streams", icon: "ri-line-chart-line", color: "secondary", compute: () => ({ value: totalRevenue > 0 ? `$${(totalRevenue / 1_000_000).toFixed(1)}M` : "$3.8M" }) },
+    { id: "premade-opex-mtd", title: "OPEX (MTD)", subtitle: "Total operating expenditure", icon: "ri-money-dollar-circle-line", color: "primary", compute: () => ({ value: totalOpex > 0 ? `$${(totalOpex / 1_000_000).toFixed(2)}M` : "$1.24M" }) },
+    { id: "premade-budget-vs-actual", title: "Budget vs Actual", subtitle: "Actual spend as % of budget", icon: "ri-pie-chart-line", color: "primary", compute: () => ({ value: budgetPct !== null ? `${budgetPct}%` : "97.7%" }) },
+    { id: "premade-schedule-adherence", title: "Schedule Adherence", subtitle: "Mean adherence across records", icon: "ri-calendar-check-line", color: "secondary", compute: () => ({ value: avgAdherence !== null ? `${avgAdherence}%` : "94%" }) },
+    { id: "premade-cost-per-unit", title: "Cost Per Unit", subtitle: "Latest cost per barrel", icon: "ri-price-tag-3-line", color: "secondary", compute: () => ({ value: latestCpuValue !== null ? `$${latestCpuValue.toFixed(2)}` : "$42.50" }) },
+  ];
+
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
+
+  const handleAddCard = (kpi: KpiItem) => {
+    const card: PerformanceKpi = {
+      id: kpi.id,
+      title: kpi.title,
+      value: kpi.value,
+      unit: kpi.unit,
+      change: kpi.change,
+      changeType: kpi.changeType ?? "neutral",
+      icon: kpi.icon,
+      color: kpi.color ?? "primary",
+      pinned: true,
+      thresholds: kpi.thresholds ?? { warning: 0, critical: 0, direction: "above", enabled: false },
+    };
+    setAddedCards((prev) => (prev.some((k) => k.id === card.id) ? prev : [...prev, card]));
+    setRemovedIds((prev) => prev.filter((i) => i !== card.id));
+    setShowAddCardModal(false);
+  };
+
+  const handleRemoveCard = (id: string) => {
+    setAddedCards((prev) => prev.filter((k) => k.id !== id));
+    setRemovedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
   const [viewMode, setViewMode] = useState("production");
   const { syncPageKpis, clearPageKpis } = useThresholdAlerts();
   const [showUpdatePlan, setShowUpdatePlan] = useState(false);
   const [showLogOutput, setShowLogOutput] = useState(false);
-  const [showCreateReport, setShowCreateReport] = useState(false);
   const [showExportData, setShowExportData] = useState(false);
+  // Latest plan is fetched from Firestore; revalidate after a new save.
+  const { data: savedPlan, revalidate: revalidatePlan } = useLatestProductionPlan();
+  // Allow temporarily hiding the plan card without deleting from Firestore.
+  const [planHidden, setPlanHidden] = useState(false);
 
   useEffect(() => {
     syncPageKpis("performance", kpis);
@@ -177,9 +277,6 @@ export default function PerformancePage() {
       case "log-output":
         setShowLogOutput(true);
         break;
-      case "create-report":
-        setShowCreateReport(true);
-        break;
       case "export-data":
         setShowExportData(true);
         break;
@@ -196,6 +293,8 @@ export default function PerformancePage() {
         kpis={kpis}
         onTogglePin={handleTogglePin}
         onThresholdsChange={handleThresholdsChange}
+        onAddCard={() => setShowAddCardModal(true)}
+        onRemoveCard={handleRemoveCard}
         quickActions={performanceActions.map((a) => ({
           ...a,
           onClick: () => handleQuickAction(a.id),
@@ -213,6 +312,71 @@ export default function PerformancePage() {
       <div className="px-6 py-6">
         {viewMode === "production" ? (
           <div className="space-y-4">
+            {savedPlan && !planHidden && (
+              <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-primary-100">
+                      <i className="ri-file-list-3-line text-primary-600 text-lg"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-heading font-semibold text-foreground-900">
+                        Current Production Plan
+                      </h3>
+                      <p className="text-xs text-foreground-500">
+                        {savedPlan.siteName} ({savedPlan.siteId})
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-foreground-400 bg-background-100 rounded-full px-3 py-1">
+                      {savedPlan.effectiveFrom} → {savedPlan.effectiveTo}
+                    </span>
+                    <button
+                      onClick={() => setPlanHidden(true)}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-foreground-400 hover:text-foreground-600 hover:bg-background-100 transition-colors"
+                      title="Hide plan"
+                    >
+                      <i className="ri-close-line text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-background-100/70 rounded-md p-3">
+                    <p className="text-xs text-foreground-500 mb-1">Target Daily Output</p>
+                    <p className="text-lg font-heading font-semibold text-foreground-900">
+                      {savedPlan.targetOutput.toLocaleString()} <span className="text-sm font-normal text-foreground-500">bbl/day</span>
+                    </p>
+                  </div>
+                  <div className="bg-background-100/70 rounded-md p-3">
+                    <p className="text-xs text-foreground-500 mb-1">Target Efficiency</p>
+                    <p className="text-lg font-heading font-semibold text-foreground-900">
+                      {savedPlan.targetEfficiency} <span className="text-sm font-normal text-foreground-500">%</span>
+                    </p>
+                  </div>
+                  <div className="bg-background-100/70 rounded-md p-3">
+                    <p className="text-xs text-foreground-500 mb-1">Plan Period</p>
+                    <p className="text-sm font-heading font-semibold text-foreground-900">
+                      {savedPlan.effectiveFrom} — {savedPlan.effectiveTo}
+                    </p>
+                    <p className="text-xs text-foreground-400 mt-0.5">
+                      {(() => {
+                        const from = new Date(savedPlan.effectiveFrom);
+                        const to = new Date(savedPlan.effectiveTo);
+                        const diff = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+                        return `${diff} days`;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                {savedPlan.notes && (
+                  <div className="mt-3 pt-3 border-t border-background-200/60">
+                    <p className="text-xs text-foreground-500 mb-1">Notes</p>
+                    <p className="text-sm text-foreground-700">{savedPlan.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
             <ProductionChart />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <YieldComparison />
@@ -284,18 +448,26 @@ export default function PerformancePage() {
       <UpdatePlanModal
         open={showUpdatePlan}
         onClose={() => setShowUpdatePlan(false)}
+        currentPlan={savedPlan}
+        onSave={(_plan: ProductionPlanRecord) => {
+          setPlanHidden(false);
+          revalidatePlan();
+        }}
       />
       <LogOutputModal
         open={showLogOutput}
         onClose={() => setShowLogOutput(false)}
       />
-      <CreateReportModal
-        open={showCreateReport}
-        onClose={() => setShowCreateReport(false)}
-      />
       <ExportReportModal
         open={showExportData}
         onClose={() => setShowExportData(false)}
+      />
+      <AddCardModal
+        open={showAddCardModal}
+        onClose={() => setShowAddCardModal(false)}
+        existingIds={kpis.map((k) => k.id)}
+        onAdd={handleAddCard}
+        premadeTemplates={performancePremadeTemplates}
       />
     </>
   );

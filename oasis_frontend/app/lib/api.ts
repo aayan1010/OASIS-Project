@@ -23,6 +23,11 @@ import {
   capexProjects as mockCapexProjects,
 } from "../mocks/finance";
 import { scheduleAdherence as mockScheduleAdherence } from "../mocks/production";
+import {
+  inventoryItems as mockInventory,
+  shipments as mockShipments,
+  warehouses as mockWarehouses,
+} from "../mocks/logistics";
 
 const API_BASE = "/api/backend";
 
@@ -60,6 +65,34 @@ export type RevenueStreamEntry = (typeof mockRevenueStreams)[number];
 export type CostPerUnitEntry = (typeof mockCostPerUnit)[number];
 export type CapexProject = (typeof mockCapexProjects)[number];
 export type ScheduleAdherenceEntry = (typeof mockScheduleAdherence)[number];
+export type InventoryItem = (typeof mockInventory)[number];
+export type Shipment = (typeof mockShipments)[number];
+export type Warehouse = (typeof mockWarehouses)[number];
+
+export interface ProductionDailyRecord {
+  id: string;
+  site_id: string;
+  // Firestore stores date as a Timestamp object; the backend serialises it as { _seconds, _nanoseconds }.
+  date: string | { _seconds: number; _nanoseconds: number };
+  production_target: number;
+  actual_production: number;
+  efficiency_percentage: number;
+  downtime_hours: number;
+  energy_used_kwh: number;
+}
+
+export interface ProductionPlanRecord {
+  id: string;
+  siteId: string;
+  siteName: string;
+  targetOutput: number;
+  targetEfficiency: number;
+  effectiveFrom: string;
+  effectiveTo: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface DrillRecord {
   id: string;
@@ -87,7 +120,6 @@ export interface IncidentRecord {
 
 // ---------- Local Mock Fallbacks ----------
 const mockDrills: DrillRecord[] = [];
-const mockIncidents: IncidentRecord[] = [];
 
 // ---------- Read hooks (fall back to mocks on error) ----------
 
@@ -145,12 +177,41 @@ export function useScheduleAdherence() {
   return useCollection<ScheduleAdherenceEntry>("/production/schedule-adherence", mockScheduleAdherence);
 }
 
+export function useDailyYield() {
+  return useCollection<ProductionDailyRecord>("/production/daily-yield", []);
+}
+
+export function useProductionRecords() {
+  return useCollection<ProductionDailyRecord>("/production/records", []);
+}
+
 export function useDrills() {
   return useCollection<DrillRecord>("/drills", mockDrills);
 }
 
+export function useProductionPlans() {
+  return useCollection<ProductionPlanRecord>("/plans", []);
+}
+
+export function useLatestProductionPlan() {
+  const { data, isLive, isLoading, revalidate } = useProductionPlans();
+  return { data: data[0] ?? null, isLive, isLoading, revalidate };
+}
+
 export function useIncidents() {
-  return useCollection<IncidentRecord>("/incidents", mockIncidents);
+  return useCollection<IncidentRecord>("/incidents", []);
+}
+
+export function useInventory() {
+  return useCollection<InventoryItem>("/logistics/inventory", mockInventory);
+}
+
+export function useShipments() {
+  return useCollection<Shipment>("/logistics/shipments", mockShipments);
+}
+
+export function useWarehouses() {
+  return useCollection<Warehouse>("/logistics/warehouses", mockWarehouses);
 }
 
 // ---------- Mutations ----------
@@ -179,6 +240,10 @@ export function createCapexProject(project: Partial<CapexProject>) {
   return mutate("/finance/capex", "POST", project);
 }
 
+export async function createProductionPlan(plan: Omit<ProductionPlanRecord, "id" | "createdAt" | "updatedAt">) {
+  return mutate<ProductionPlanRecord>("/plans", "POST", plan);
+}
+
 export async function createDrill(drill: Partial<DrillRecord>) {
   try {
     return await mutate("/drills", "POST", drill);
@@ -190,11 +255,5 @@ export async function createDrill(drill: Partial<DrillRecord>) {
 }
 
 export async function createIncident(incident: Partial<IncidentRecord>) {
-  try {
-    return await mutate("/incidents", "POST", incident);
-  } catch {
-    // If the backend fails or isn't built yet, update the local cache so the UI works
-    mockIncidents.unshift(incident as IncidentRecord);
-    return incident;
-  }
+  return mutate("/incidents", "POST", incident);
 }

@@ -14,6 +14,7 @@ import WarehouseUtilization from "../../pages/logistics/components/WarehouseUtil
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
 import RunDiagnosticModal from "../../pages/sites/components/RunDiagnosticModal";
 import CreateShipmentModal from "../../pages/sites/components/CreateShipmentModal";
+import AddCardModal, { type KpiItem, type PremadeTemplate } from "../../pages/overview/components/AddCardModal";
 import { useAssets, useSites, useAlerts } from "../../lib/api";
 
 const sitesActions = [
@@ -30,7 +31,9 @@ export default function SitesPage() {
   const activeAlertCount = alertRecords.filter((a) => a.status === "active").length;
 
   const [pinnedIds, setPinnedIds] = useState<string[]>(["total-assets", "active-sites", "avg-health", "offline-assets"]);
-  const kpis = [
+  const [addedCards, setAddedCards] = useState<KpiItem[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const baseKpis = [
     {
       id: "total-assets",
       title: "Total Assets",
@@ -85,16 +88,47 @@ export default function SitesPage() {
       icon: "ri-tools-line",
       color: "primary" as const,
     },
-  ].map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
+  ];
+  const kpis = [...baseKpis, ...addedCards]
+    .filter((k) => !removedIds.includes(k.id))
+    .map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
+
+  // Page-specific premade cards derived from live sites/assets/alerts data.
+  const sitesPremadeTemplates: PremadeTemplate[] = [
+    { id: "premade-total-sites", title: "Total Sites", subtitle: "All registered sites", icon: "ri-building-line", color: "primary", compute: () => ({ value: sites.length }) },
+    { id: "premade-active-sites", title: "Active Sites", subtitle: "Sites currently operational", icon: "ri-check-double-line", color: "primary", compute: () => ({ value: sites.filter((s) => s.status === "Active").length }) },
+    { id: "premade-total-assets", title: "Total Assets", subtitle: "All tracked equipment", icon: "ri-server-line", color: "secondary", compute: () => ({ value: assetLocations.length }) },
+    { id: "premade-online-assets", title: "Online Assets", subtitle: "Currently operational", icon: "ri-wifi-line", color: "secondary", compute: () => ({ value: assetLocations.filter((a) => a.status === "online").length }) },
+    { id: "premade-offline-assets", title: "Offline / Degraded", subtitle: "Assets requiring attention", icon: "ri-close-circle-line", color: "accent", compute: () => ({ value: assetLocations.filter((a) => a.status === "offline" || a.status === "degraded").length }) },
+    { id: "premade-maintenance-assets", title: "Under Maintenance", subtitle: "Assets being serviced", icon: "ri-tools-line", color: "primary", compute: () => ({ value: assetLocations.filter((a) => a.status === "maintenance").length }) },
+    { id: "premade-avg-health", title: "Average Asset Health", subtitle: "Mean health score across assets", icon: "ri-heart-pulse-line", color: "secondary", compute: () => ({ value: `${Math.round(assetLocations.reduce((s, a) => s + (a.healthScore ?? 0), 0) / Math.max(1, assetLocations.length) * 10) / 10}%` }) },
+    { id: "premade-critical-assets", title: "Critical Assets", subtitle: "Health score below 30%", icon: "ri-alert-line", color: "accent", compute: () => ({ value: assetLocations.filter((a) => (a.healthScore ?? 100) < 30).length }) },
+    { id: "premade-active-alerts", title: "Active Alerts", subtitle: "Currently open alerts", icon: "ri-alarm-warning-line", color: "accent", compute: () => ({ value: activeAlertCount }) },
+  ];
+
   const [viewMode, setViewMode] = useState("map");
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [diagnosticModalOpen, setDiagnosticModalOpen] = useState(false);
   const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setPinnedIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
+  };
+
+  const handleAddCard = (kpi: KpiItem) => {
+    setAddedCards((prev) => (prev.some((k) => k.id === kpi.id) ? prev : [...prev, kpi]));
+    setPinnedIds((prev) => (prev.includes(kpi.id) ? prev : [...prev, kpi.id]));
+    setRemovedIds((prev) => prev.filter((i) => i !== kpi.id));
+    setShowAddCardModal(false);
+  };
+
+  const handleRemoveCard = (id: string) => {
+    setAddedCards((prev) => prev.filter((k) => k.id !== id));
+    setRemovedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setPinnedIds((prev) => prev.filter((i) => i !== id));
   };
 
   const handleAction = (actionId: string) => {
@@ -118,6 +152,8 @@ export default function SitesPage() {
         subtitle="Asset GIS tracking, telemetry monitoring, supply chain, and inventory management"
         kpis={kpis}
         onTogglePin={handleTogglePin}
+        onAddCard={() => setShowAddCardModal(true)}
+        onRemoveCard={handleRemoveCard}
         quickActions={sitesActions.map((a) => ({
           ...a,
           onClick: () => handleAction(a.id),
@@ -148,6 +184,13 @@ export default function SitesPage() {
       <ExportReportModal open={exportModalOpen} onClose={() => setExportModalOpen(false)} />
       <RunDiagnosticModal open={diagnosticModalOpen} onClose={() => setDiagnosticModalOpen(false)} />
       <CreateShipmentModal open={shipmentModalOpen} onClose={() => setShipmentModalOpen(false)} />
+      <AddCardModal
+        open={showAddCardModal}
+        onClose={() => setShowAddCardModal(false)}
+        existingIds={kpis.map((k) => k.id)}
+        onAdd={handleAddCard}
+        premadeTemplates={sitesPremadeTemplates}
+      />
     </>
   );
 }

@@ -11,7 +11,8 @@ import IncidentsTable from "../../pages/safety/components/IncidentsTable";
 import ComplianceGauge from "../../pages/safety/components/ComplianceGauge";
 import HazardBreakdown from "../../pages/safety/components/HazardBreakdown";
 import SafetyDrills from "../../pages/safety/components/SafetyDrills";
-import { useAlerts, useAssets } from "../../lib/api";
+import AddCardModal, { type KpiItem, type PremadeTemplate } from "../../pages/overview/components/AddCardModal";
+import { useAlerts, useAssets, useIncidents } from "../../lib/api";
 
 // Helper function to safely format dates without crashing
 function safeFormatDate(ts: unknown): string {
@@ -29,6 +30,7 @@ function safeFormatDate(ts: unknown): string {
 export default function AlertsPage() {
   const { data: alertRecords } = useAlerts();
   const { data: assetLocations } = useAssets();
+  const { data: incidents } = useIncidents();
 
   const activeAlertCount = alertRecords.filter((a) => a.status === "active").length;
   const highSeverityAlertCount = alertRecords.filter((a) => a.status === "active" && a.severity === "high").length;
@@ -39,13 +41,23 @@ export default function AlertsPage() {
     { type: "Excess Vibration", count: alertRecords.filter((a) => a.alertType === "Excess Vibration").length },
   ];
 
+  const daysSafe = (() => {
+    const dated = incidents
+      .map((i) => new Date(i.dateLogged ?? "").getTime())
+      .filter((t) => !isNaN(t));
+    if (!dated.length) return null;
+    return Math.floor((Date.now() - Math.max(...dated)) / 86_400_000);
+  })();
+
   const [pinnedIds, setPinnedIds] = useState<string[]>(["days-safe", "active-alerts", "acknowledged", "resolved-alerts"]);
-  const kpis = [
+  const [addedCards, setAddedCards] = useState<KpiItem[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const baseKpis = [
     {
       id: "days-safe",
       title: "Days Without Incident",
-      value: 16,
-      change: "↑ from 12",
+      value: daysSafe !== null ? daysSafe : 0,
+      change: daysSafe !== null ? `Since last incident` : "No incidents logged",
       changeType: "positive" as const,
       icon: "ri-shield-check-line",
       color: "primary" as const,
@@ -101,17 +113,49 @@ export default function AlertsPage() {
       color: "secondary" as const,
       pinned: false,
     },
-  ].map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
+  ];
+  const kpis = [...baseKpis, ...addedCards]
+    .filter((k) => !removedIds.includes(k.id))
+    .map((k) => ({ ...k, pinned: pinnedIds.includes(k.id) }));
+
+  // Page-specific premade cards derived from live alerts/incidents/assets data.
+  const alertsPremadeTemplates: PremadeTemplate[] = [
+    { id: "premade-total-alerts", title: "Total Alerts", subtitle: "All alert records", icon: "ri-notification-3-line", color: "accent", compute: () => ({ value: alertRecords.length }) },
+    { id: "premade-active-alerts", title: "Active Alerts", subtitle: "Currently open alerts", icon: "ri-alarm-warning-line", color: "accent", compute: () => ({ value: activeAlertCount }) },
+    { id: "premade-high-sev-alerts", title: "High Severity Alerts", subtitle: "Active high-severity alerts", icon: "ri-error-warning-line", color: "accent", compute: () => ({ value: highSeverityAlertCount }) },
+    { id: "premade-acknowledged-alerts", title: "Acknowledged Alerts", subtitle: "Pending review", icon: "ri-eye-line", color: "secondary", compute: () => ({ value: acknowledgedAlertCount }) },
+    { id: "premade-resolved-alerts", title: "Resolved Alerts", subtitle: "Successfully resolved", icon: "ri-check-double-line", color: "primary", compute: () => ({ value: resolvedAlertCount }) },
+    { id: "premade-total-incidents", title: "Total Incidents", subtitle: "All logged incidents", icon: "ri-first-aid-kit-line", color: "accent", compute: () => ({ value: incidents.length }) },
+    { id: "premade-open-incidents", title: "Open Incidents", subtitle: "Incidents not yet closed", icon: "ri-alert-line", color: "accent", compute: () => ({ value: incidents.filter((i) => (i.status ?? "open") === "open").length }) },
+    { id: "premade-days-safe", title: "Days Without Incident", subtitle: "Since the last logged incident", icon: "ri-shield-check-line", color: "primary", compute: () => ({ value: daysSafe !== null ? daysSafe : 0 }) },
+    { id: "premade-critical-assets", title: "Critical Assets", subtitle: "Health score below 30%", icon: "ri-alert-line", color: "accent", compute: () => ({ value: assetLocations.filter((a) => (a.healthScore ?? 100) < 30).length }) },
+    { id: "premade-offline-assets", title: "Offline Assets", subtitle: "Assets currently offline", icon: "ri-signal-wifi-off-line", color: "secondary", compute: () => ({ value: assetLocations.filter((a) => a.status === "offline").length }) },
+  ];
+
   const [viewMode, setViewMode] = useState("incidents");
   const { breachAlerts } = useThresholdAlerts();
   const [reportIncidentOpen, setReportIncidentOpen] = useState(false);
   const [logHazardOpen, setLogHazardOpen] = useState(false);
   const [scheduleDrillOpen, setScheduleDrillOpen] = useState(false);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
 
   const handleTogglePin = (id: string) => {
     setPinnedIds((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
+  };
+
+  const handleAddCard = (kpi: KpiItem) => {
+    setAddedCards((prev) => (prev.some((k) => k.id === kpi.id) ? prev : [...prev, kpi]));
+    setPinnedIds((prev) => (prev.includes(kpi.id) ? prev : [...prev, kpi.id]));
+    setRemovedIds((prev) => prev.filter((i) => i !== kpi.id));
+    setShowAddCardModal(false);
+  };
+
+  const handleRemoveCard = (id: string) => {
+    setAddedCards((prev) => prev.filter((k) => k.id !== id));
+    setRemovedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setPinnedIds((prev) => prev.filter((i) => i !== id));
   };
 
   return (
@@ -121,9 +165,10 @@ export default function AlertsPage() {
         subtitle="Active alerts, incident tracking, hazard management, and compliance monitoring"
         kpis={kpis}
         onTogglePin={handleTogglePin}
+        onAddCard={() => setShowAddCardModal(true)}
+        onRemoveCard={handleRemoveCard}
         quickActions={[
           { id: "report-incident", label: "Report Incident", icon: "ri-alert-line", color: "accent" as const, onClick: () => setReportIncidentOpen(true) },
-          { id: "log-hazard", label: "Log Hazard", icon: "ri-error-warning-line", color: "primary" as const, onClick: () => setLogHazardOpen(true) },
           { id: "schedule-drill", label: "Schedule Drill", icon: "ri-calendar-line", color: "secondary" as const, onClick: () => setScheduleDrillOpen(true) },
         ]}
         viewToggle={{
@@ -293,9 +338,7 @@ export default function AlertsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-foreground-400">
-                            {safeFormatDate(alert.timestamp)}
-                          </span>
+                          <span className="text-xs text-foreground-400">{safeFormatDate(alert.timestamp)}</span>
                         </td>
                       </tr>
                     ))}
@@ -339,8 +382,14 @@ export default function AlertsPage() {
       </div>
 
       <ReportIncidentModal open={reportIncidentOpen} onClose={() => setReportIncidentOpen(false)} />
-      <LogHazardModal open={logHazardOpen} onClose={() => setLogHazardOpen(false)} />
       <ScheduleDrillModal open={scheduleDrillOpen} onClose={() => setScheduleDrillOpen(false)} />
+      <AddCardModal
+        open={showAddCardModal}
+        onClose={() => setShowAddCardModal(false)}
+        existingIds={kpis.map((k) => k.id)}
+        onAdd={handleAddCard}
+        premadeTemplates={alertsPremadeTemplates}
+      />
     </>
   );
 }

@@ -1,76 +1,13 @@
 "use client";
 
 import TopOverview from "../../components/feature/TopOverview";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import BudgetChart from "./components/BudgetChart";
 import OpexBreakdown from "./components/OpexBreakdown";
 import RevenueStreams from "./components/RevenueStreams";
 import CostMetrics from "./components/CostMetrics";
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
-import { useRevenueStreams } from "../../lib/api";
-
-const financeKpis = [
-  {
-    id: "opex-mtd",
-    title: "OPEX (MTD)",
-    value: "$1.24M",
-    change: "-2.3%",
-    changeType: "positive" as const,
-    icon: "ri-money-dollar-circle-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "budget-vs-actual",
-    title: "Budget vs Actual",
-    value: "97.7%",
-    change: "Under budget",
-    changeType: "positive" as const,
-    icon: "ri-pie-chart-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "revenue-mtd",
-    title: "Revenue (MTD)",
-    value: "$3.8M",
-    change: "+4.1%",
-    changeType: "positive" as const,
-    icon: "ri-line-chart-line",
-    color: "secondary" as const,
-    pinned: true,
-  },
-  {
-    id: "cost-per-unit",
-    title: "Cost Per Unit",
-    value: "$42.50",
-    change: "-1.2%",
-    changeType: "positive" as const,
-    icon: "ri-price-tag-3-line",
-    color: "secondary" as const,
-    pinned: true,
-  },
-  {
-    id: "capex-ytd",
-    title: "CAPEX (YTD)",
-    value: "$4.2M",
-    change: "+8%",
-    changeType: "negative" as const,
-    icon: "ri-building-line",
-    color: "accent" as const,
-    pinned: false,
-  },
-  {
-    id: "roi",
-    title: "ROI",
-    value: "18.4%",
-    change: "+0.6%",
-    changeType: "positive" as const,
-    icon: "ri-percent-line",
-    color: "primary" as const,
-    pinned: false,
-  },
-];
+import { useRevenueStreams, useMonthlyBudget, useCostPerUnit, useCapexProjects } from "../../lib/api";
 
 const financeActions = [
   { id: "create-report", label: "Create Report", icon: "ri-file-add-line", color: "primary" as const },
@@ -80,14 +17,109 @@ const financeActions = [
 
 export default function FinancePage() {
   const { data: revenueStreams } = useRevenueStreams();
-  const [kpis, setKpis] = useState(financeKpis);
+  const { data: monthlyBudget } = useMonthlyBudget();
+  const { data: costPerUnit } = useCostPerUnit();
+  const { data: capexProjects } = useCapexProjects();
   const [viewMode, setViewMode] = useState("budget");
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
+  // Compute live KPI values from Firestore data.
+  const totalRevenueMtd = useMemo(
+    () => revenueStreams.reduce((s, r) => s + r.amount, 0),
+    [revenueStreams],
+  );
+  const totalOpexMtd = useMemo(
+    () => monthlyBudget.reduce((s, r) => s + (r.actual ?? r.budget ?? 0), 0),
+    [monthlyBudget],
+  );
+  const totalBudget = useMemo(
+    () => monthlyBudget.reduce((s, r) => s + (r.budget ?? 0), 0),
+    [monthlyBudget],
+  );
+  const budgetVsActual = totalBudget > 0 ? Math.round((totalOpexMtd / totalBudget) * 1000) / 10 : null;
+  const latestCpu = costPerUnit.length ? costPerUnit[costPerUnit.length - 1] : null;
+  const latestCpuValue = latestCpu
+    ? ((latestCpu as { liftingCost?: number }).liftingCost ?? (latestCpu as { opsCost?: number }).opsCost ?? null)
+    : null;
+  const totalCapex = useMemo(
+    () => capexProjects.reduce((s, p) => s + (p.budget ?? 0), 0),
+    [capexProjects],
+  );
+
+  const liveKpis = useMemo(() => [
+    {
+      id: "opex-mtd",
+      title: "OPEX (MTD)",
+      value: totalOpexMtd > 0 ? `$${(totalOpexMtd / 1_000_000).toFixed(2)}M` : "$1.24M",
+      change: "-2.3%",
+      changeType: "positive" as const,
+      icon: "ri-money-dollar-circle-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "budget-vs-actual",
+      title: "Budget vs Actual",
+      value: budgetVsActual !== null ? `${budgetVsActual}%` : "97.7%",
+      change: budgetVsActual !== null && budgetVsActual < 100 ? "Under budget" : "Over budget",
+      changeType: budgetVsActual !== null && budgetVsActual < 100 ? "positive" as const : "negative" as const,
+      icon: "ri-pie-chart-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "revenue-mtd",
+      title: "Revenue (MTD)",
+      value: totalRevenueMtd > 0 ? `$${(totalRevenueMtd / 1_000_000).toFixed(1)}M` : "$3.8M",
+      change: "+4.1%",
+      changeType: "positive" as const,
+      icon: "ri-line-chart-line",
+      color: "secondary" as const,
+      pinned: true,
+    },
+    {
+      id: "cost-per-unit",
+      title: "Cost Per Unit",
+      value: latestCpuValue !== null ? `$${latestCpuValue.toFixed(2)}` : "$42.50",
+      change: "-1.2%",
+      changeType: "positive" as const,
+      icon: "ri-price-tag-3-line",
+      color: "secondary" as const,
+      pinned: true,
+    },
+    {
+      id: "capex-ytd",
+      title: "CAPEX (YTD)",
+      value: totalCapex > 0 ? `$${(totalCapex / 1_000_000).toFixed(1)}M` : "$4.2M",
+      change: "+8%",
+      changeType: "negative" as const,
+      icon: "ri-building-line",
+      color: "accent" as const,
+      pinned: false,
+    },
+    {
+      id: "roi",
+      title: "ROI",
+      value: totalOpexMtd > 0 && totalRevenueMtd > 0
+        ? `${Math.round(((totalRevenueMtd - totalOpexMtd) / totalOpexMtd) * 1000) / 10}%`
+        : "18.4%",
+      change: "+0.6%",
+      changeType: "positive" as const,
+      icon: "ri-percent-line",
+      color: "primary" as const,
+      pinned: false,
+    },
+  ], [totalOpexMtd, budgetVsActual, totalRevenueMtd, latestCpu, totalCapex]);
+
+  const [pinnedOverrides, setPinnedOverrides] = useState<Record<string, boolean>>({});
+  const kpis = liveKpis.map((k) => ({
+    ...k,
+    pinned: k.id in pinnedOverrides ? pinnedOverrides[k.id] : k.pinned,
+  }));
+
   const handleTogglePin = (id: string) => {
-    setKpis((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
-    );
+    const current = kpis.find((k) => k.id === id);
+    setPinnedOverrides((prev) => ({ ...prev, [id]: !current?.pinned }));
   };
 
   const handleAction = (actionId: string) => {

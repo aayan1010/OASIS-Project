@@ -153,7 +153,7 @@ function computeValue(config: CustomCardConfig): string | number {
 
 // ---- Premade Templates ----
 
-interface PremadeTemplate {
+export interface PremadeTemplate {
   id: string;
   title: string;
   subtitle: string;
@@ -361,12 +361,15 @@ interface AddCardModalProps {
   onClose: () => void;
   existingIds: string[];
   onAdd: (kpi: KpiItem) => void;
+  /** Optional page-specific premade templates. Falls back to the default overview set. */
+  premadeTemplates?: PremadeTemplate[];
 }
 
 type TabId = "premade" | "custom";
 
-export default function AddCardModal({ open, onClose, existingIds, onAdd }: AddCardModalProps) {
+export default function AddCardModal({ open, onClose, existingIds, onAdd, premadeTemplates }: AddCardModalProps) {
   const [tab, setTab] = useState<TabId>("premade");
+  const templates = premadeTemplates ?? PREMADE_TEMPLATES;
 
   // Custom form state
   const [customTitle, setCustomTitle] = useState("");
@@ -472,7 +475,7 @@ export default function AddCardModal({ open, onClose, existingIds, onAdd }: AddC
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose}></div>
       <div className="relative bg-background-50 rounded-xl border border-background-200/70 w-full max-w-[720px] max-h-[85vh] flex flex-col shadow-2xl mx-4">
         {/* Header */}
@@ -516,7 +519,7 @@ export default function AddCardModal({ open, onClose, existingIds, onAdd }: AddC
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {tab === "premade" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PREMADE_TEMPLATES.map((tpl) => {
+              {templates.map((tpl) => {
                 const alreadyAdded = existingIds.includes(tpl.id);
                 const computed = tpl.compute();
                 return (

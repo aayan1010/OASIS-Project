@@ -9,6 +9,8 @@ const sitesRoutes = require('./routes/sites.routes');
 const maintenanceRoutes = require('./routes/maintenance.routes');
 const financeRoutes = require('./routes/finance.routes');
 const productionRoutes = require('./routes/production.routes');
+const incidentsRoutes = require('./routes/incidents.routes');
+const plansRoutes = require('./routes/plans.routes');
 const demoRoutes = require('./routes/demo.routes');
 
 const app = express();
@@ -31,6 +33,8 @@ app.use('/api/sites', sitesRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/production', productionRoutes);
+app.use('/api/incidents', incidentsRoutes);
+app.use('/api/plans', plansRoutes);
 app.use('/api/demo', demoRoutes);
 
 // Start server

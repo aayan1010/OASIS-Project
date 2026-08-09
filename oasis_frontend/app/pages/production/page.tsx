@@ -1,78 +1,12 @@
 "use client";
 
 import TopOverview from "../../components/feature/TopOverview";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import ProductionChart from "./components/ProductionChart";
 import ThroughputCards from "./components/ThroughputCards";
 import YieldComparison from "./components/YieldComparison";
 import DowntimeLog from "./components/DowntimeLog";
-import { totalDailyProduction, avgEfficiency, totalDowntime } from "../../mocks/production";
-import { useScheduleAdherence } from "../../lib/api";
-
-const productionKpis = [
-  {
-    id: "daily-output",
-    title: "Daily Output",
-    value: totalDailyProduction.toLocaleString(),
-    unit: "bbl/day",
-    change: "+2.1%",
-    changeType: "positive" as const,
-    icon: "ri-drop-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "yield-vs-target",
-    title: "Avg Efficiency",
-    value: `${avgEfficiency}%`,
-    change: "+0.8%",
-    changeType: "positive" as const,
-    icon: "ri-percent-line",
-    color: "primary" as const,
-    pinned: true,
-  },
-  {
-    id: "downtime-hours",
-    title: "Downtime (Jul MTD)",
-    value: String(totalDowntime),
-    unit: "hrs",
-    change: "-1.2",
-    changeType: "positive" as const,
-    icon: "ri-time-line",
-    color: "accent" as const,
-    pinned: true,
-  },
-  {
-    id: "schedule-adherence",
-    title: "Schedule Adherence",
-    value: "94%",
-    change: "+3%",
-    changeType: "positive" as const,
-    icon: "ri-calendar-check-line",
-    color: "secondary" as const,
-    pinned: true,
-  },
-  {
-    id: "efficiency-rate",
-    title: "Efficiency Rate",
-    value: `${avgEfficiency}%`,
-    change: "+2%",
-    changeType: "positive" as const,
-    icon: "ri-speed-line",
-    color: "secondary" as const,
-    pinned: false,
-  },
-  {
-    id: "quality-score",
-    title: "Quality Score",
-    value: "99.1%",
-    change: "+0.2%",
-    changeType: "positive" as const,
-    icon: "ri-award-line",
-    color: "primary" as const,
-    pinned: false,
-  },
-];
+import { useScheduleAdherence, useProductionRecords } from "../../lib/api";
 
 const productionActions = [
   { id: "update-plan", label: "Update Plan", icon: "ri-edit-line", color: "primary" as const },
@@ -80,15 +14,111 @@ const productionActions = [
   { id: "view-forecasts", label: "View Forecasts", icon: "ri-line-chart-line", color: "secondary" as const },
 ];
 
+// Resolve a Firestore Timestamp-or-string date to an ISO date string.
+function toDateStr(d: unknown): string {
+  if (!d) return "";
+  if (typeof d === "string") return d;
+  if (typeof d === "object" && "_seconds" in (d as object))
+    return new Date((d as { _seconds: number })._seconds * 1000).toISOString().slice(0, 10);
+  return String(d);
+}
+
 export default function ProductionPage() {
   const { data: scheduleAdherence } = useScheduleAdherence();
-  const [kpis, setKpis] = useState(productionKpis);
+  const { data: productionRecords } = useProductionRecords();
+
+  // Derive KPIs from the latest day's records across all sites.
+  const { dailyOutput, avgEfficiency, totalDowntime } = useMemo(() => {
+    const sorted = [...productionRecords].sort((a, b) => toDateStr(b.date).localeCompare(toDateStr(a.date)));
+    const latestDate = toDateStr(sorted[0]?.date);
+    const latest = latestDate ? sorted.filter((r) => toDateStr(r.date) === latestDate) : [];
+    if (!latest.length) return { dailyOutput: null, avgEfficiency: null, totalDowntime: null };
+    const dailyOutput = Math.round(latest.reduce((s, r) => s + (r.actual_production ?? 0), 0));
+    const avgEfficiency = Math.round(latest.reduce((s, r) => s + (r.efficiency_percentage ?? 0), 0) / latest.length * 10) / 10;
+    const totalDowntime = Math.round(latest.reduce((s, r) => s + (r.downtime_hours ?? 0), 0) * 10) / 10;
+    return { dailyOutput, avgEfficiency, totalDowntime };
+  }, [productionRecords]);
+
+  // Average schedule adherence from live data.
+  const avgAdherence = scheduleAdherence.length
+    ? Math.round(scheduleAdherence.reduce((s, r) => s + r.adherence, 0) / scheduleAdherence.length)
+    : null;
+
+  const liveKpis = useMemo(() => [
+    {
+      id: "daily-output",
+      title: "Daily Output",
+      value: dailyOutput !== null ? dailyOutput.toLocaleString() : "—",
+      unit: "bbl/day",
+      change: "+2.1%",
+      changeType: "positive" as const,
+      icon: "ri-drop-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "yield-vs-target",
+      title: "Avg Efficiency",
+      value: avgEfficiency !== null ? `${avgEfficiency}%` : "—",
+      change: "+0.8%",
+      changeType: "positive" as const,
+      icon: "ri-percent-line",
+      color: "primary" as const,
+      pinned: true,
+    },
+    {
+      id: "downtime-hours",
+      title: "Downtime (Latest Day)",
+      value: totalDowntime !== null ? String(totalDowntime) : "—",
+      unit: "hrs",
+      change: "-1.2",
+      changeType: "positive" as const,
+      icon: "ri-time-line",
+      color: "accent" as const,
+      pinned: true,
+    },
+    {
+      id: "schedule-adherence",
+      title: "Schedule Adherence",
+      value: avgAdherence !== null ? `${avgAdherence}%` : "94%",
+      change: "+3%",
+      changeType: "positive" as const,
+      icon: "ri-calendar-check-line",
+      color: "secondary" as const,
+      pinned: true,
+    },
+    {
+      id: "efficiency-rate",
+      title: "Efficiency Rate",
+      value: avgEfficiency !== null ? `${avgEfficiency}%` : "—",
+      change: "+2%",
+      changeType: "positive" as const,
+      icon: "ri-speed-line",
+      color: "secondary" as const,
+      pinned: false,
+    },
+    {
+      id: "quality-score",
+      title: "Quality Score",
+      value: "99.1%",
+      change: "+0.2%",
+      changeType: "positive" as const,
+      icon: "ri-award-line",
+      color: "primary" as const,
+      pinned: false,
+    },
+  ], [dailyOutput, avgEfficiency, totalDowntime, avgAdherence]);
+
+  const [pinnedOverrides, setPinnedOverrides] = useState<Record<string, boolean>>({});
+  const kpis = liveKpis.map((k) => ({
+    ...k,
+    pinned: k.id in pinnedOverrides ? pinnedOverrides[k.id] : k.pinned,
+  }));
   const [viewMode, setViewMode] = useState("charts");
 
   const handleTogglePin = (id: string) => {
-    setKpis((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, pinned: !k.pinned } : k))
-    );
+    const current = kpis.find((k) => k.id === id);
+    setPinnedOverrides((prev) => ({ ...prev, [id]: !current?.pinned }));
   };
 
   return (
