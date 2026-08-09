@@ -143,6 +143,30 @@ function addLocalDrill(drill: DrillRecord) {
   }
 }
 
+// When the Express backend is unreachable, work orders created in the UI are
+// persisted to localStorage so they survive reloads and appear on the calendar.
+const WORK_ORDERS_STORAGE_KEY = "oasis:workOrders";
+
+function getLocalWorkOrders(): WorkOrder[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(WORK_ORDERS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as WorkOrder[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addLocalWorkOrder(workOrder: WorkOrder) {
+  if (typeof window === "undefined") return;
+  try {
+    const workOrders = getLocalWorkOrders();
+    window.localStorage.setItem(WORK_ORDERS_STORAGE_KEY, JSON.stringify([workOrder, ...workOrders]));
+  } catch {
+    // Ignore storage failures (e.g. private mode / quota).
+  }
+}
+
 // ---------- Read hooks (fall back to mocks on error) ----------
 
 function useCollection<T>(path: string, fallback: T[]) {
@@ -172,7 +196,7 @@ export function useSites() {
 }
 
 export function useWorkOrders() {
-  return useCollection<WorkOrder>("/maintenance", mockWorkOrders);
+  return useCollection<WorkOrder>("/maintenance", [...getLocalWorkOrders(), ...mockWorkOrders]);
 }
 
 export function useMonthlyBudget() {
@@ -246,8 +270,15 @@ export function resolveAlert(id: string) {
   return mutate(`/alerts/${id}/resolve`, "POST");
 }
 
-export function createWorkOrder(workOrder: Partial<WorkOrder>) {
-  return mutate("/maintenance", "POST", workOrder);
+export async function createWorkOrder(workOrder: Partial<WorkOrder>) {
+  try {
+    return await mutate("/maintenance", "POST", workOrder);
+  } catch {
+    // If the backend is unreachable, persist to localStorage so the work order
+    // survives reloads and appears on the maintenance calendar.
+    addLocalWorkOrder(workOrder as WorkOrder);
+    return workOrder;
+  }
 }
 
 export function updateWorkOrder(id: string, updates: Partial<WorkOrder>) {

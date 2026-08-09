@@ -36,7 +36,7 @@ export default function MaintenanceCalendar() {
   const workOrderEvents: CalendarEvent[] = workOrders.map((wo) => ({
     id: `evt-${wo.id}`,
     title: `${wo.category}: ${wo.asset}`,
-    date: wo.createdDate,
+    date: wo.dueDate || wo.createdDate,
     type: wo.category === "Preventative Maintenance" ? "pm" : wo.category === "Inspection" ? "inspection" : "wo",
     asset: wo.asset,
     assignee: wo.assignee,
