@@ -35,6 +35,14 @@ async function getRawRecords() {
   return getAll(COLLECTIONS.rawRecords);
 }
 
+async function createRawRecord(record) {
+  const now = new Date().toISOString();
+  return createDoc(COLLECTIONS.rawRecords, {
+    ...record,
+    createdAt: now,
+  });
+}
+
 async function createScheduleAdherenceEntry(entry) {
   return createDoc(COLLECTIONS.scheduleAdherence, entry);
 }
@@ -51,6 +59,7 @@ module.exports = {
   COLLECTIONS,
   getScheduleAdherence,
   getRawRecords,
+  createRawRecord,
   getHourlyProduction,
   getDailyYield,
   getThroughputByAsset,

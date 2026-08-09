@@ -244,6 +244,10 @@ export async function createProductionPlan(plan: Omit<ProductionPlanRecord, "id"
   return mutate<ProductionPlanRecord>("/plans", "POST", plan);
 }
 
+export async function createProductionRecord(record: Omit<ProductionDailyRecord, "id">) {
+  return mutate<ProductionDailyRecord>("/production/records", "POST", record);
+}
+
 export async function createDrill(drill: Partial<DrillRecord>) {
   try {
     return await mutate("/drills", "POST", drill);

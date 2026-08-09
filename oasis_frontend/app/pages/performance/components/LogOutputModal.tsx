@@ -1,28 +1,50 @@
 import { useState, type FormEvent } from "react";
 import { sites } from "../../../mocks/sites";
+import { createProductionRecord, type ProductionDailyRecord } from "../../../lib/api";
 
 interface LogOutputModalProps {
   open: boolean;
   onClose: () => void;
+  onSaved?: (record: ProductionDailyRecord) => void;
 }
 
-export default function LogOutputModal({ open, onClose }: LogOutputModalProps) {
+export default function LogOutputModal({ open, onClose, onSaved }: LogOutputModalProps) {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const actual = Number(form.get("actual_output"));
+    const planned = Number(form.get("planned_target"));
+    const record: Omit<ProductionDailyRecord, "id"> = {
+      site_id: form.get("site") as string,
+      date: form.get("production_date") as string,
+      actual_production: actual,
+      production_target: planned,
+      efficiency_percentage: planned > 0 ? Math.round((actual / planned) * 1000) / 10 : 0,
+      downtime_hours: Number(form.get("downtime_hours")) || 0,
+      energy_used_kwh: Number(form.get("energy_used")) || 0,
+    };
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+    try {
+      const saved = await createProductionRecord(record);
+      onSaved?.(saved);
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);
         onClose();
       }, 1800);
-    }, 1000);
+    } catch (err) {
+      console.error("Failed to log production output:", err);
+      setError("Could not save the output. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -155,6 +177,12 @@ export default function LogOutputModal({ open, onClose }: LogOutputModalProps) {
               ></textarea>
               <p className="text-xs text-foreground-400 mt-1">Max 500 characters</p>
             </div>
+
+            {error && (
+              <p className="text-xs text-accent-600 bg-accent-50 border border-accent-200/70 rounded-md px-3 py-2">
+                {error}
+              </p>
+            )}
 
             <div className="flex items-center gap-3 pt-1">
               <button
