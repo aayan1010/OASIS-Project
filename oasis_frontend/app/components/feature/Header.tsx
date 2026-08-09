@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { recentAlerts } from "../../mocks/dashboard";
+import { generateLiveDemoData } from "../../lib/api";
 
 function useTheme() {
   const [dark, setDark] = useState(() => {
@@ -33,6 +34,27 @@ export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [systemStatus] = useState<"online" | "degraded" | "offline">("online");
   const { dark, toggle: toggleTheme } = useTheme();
+
+  const [demoStatus, setDemoStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+
+  async function handleGenerateLiveData() {
+    setDemoStatus("loading");
+    try {
+      await generateLiveDemoData();
+      setDemoStatus("done");
+      setTimeout(() => setDemoStatus("idle"), 2000);
+    } catch (err) {
+      console.error(err);
+      setDemoStatus("error");
+      setTimeout(() => setDemoStatus("idle"), 2000);
+    }
+  }
+
+  const demoButtonLabel =
+    demoStatus === "loading" ? "Generating..." :
+    demoStatus === "done" ? "Data added!" :
+    demoStatus === "error" ? "Failed, try again" :
+    "Simulate Live Update";
 
   useEffect(() => {
     setMounted(true); // 2. Set mounted to true once the client takes over
@@ -88,6 +110,15 @@ export default function Header() {
             {systemStatus}
           </span>
         </div>
+
+        <button
+          onClick={handleGenerateLiveData}
+          disabled={demoStatus === "loading"}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-500 text-background-50 hover:bg-primary-600 disabled:opacity-50 transition-colors"
+          title="Generate random live data for demo purposes"
+        >
+          {demoButtonLabel}
+        </button>
 
         <button
           onClick={toggleTheme}
