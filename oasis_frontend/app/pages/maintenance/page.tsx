@@ -120,6 +120,13 @@ export default function MaintenancePage() {
   const [viewMode, setViewMode] = useState("calendar");
   const [workOrderModalOpen, setWorkOrderModalOpen] = useState(false);
   const [pmModalOpen, setPmModalOpen] = useState(false);
+  const [focusDate, setFocusDate] = useState<string>();
+
+  // After scheduling, switch to the calendar and jump to the chosen date's month.
+  const handleScheduled = (date: string) => {
+    setViewMode("calendar");
+    setFocusDate(date);
+  };
   const [showAddCardModal, setShowAddCardModal] = useState(false);
 
   const handleTogglePin = (id: string) => {
@@ -177,13 +184,21 @@ export default function MaintenancePage() {
 
       <div className="px-6 py-6">
         {viewMode === "calendar" ? (
-          <MaintenanceCalendar />
+          <MaintenanceCalendar focusDate={focusDate} />
         ) : (
           <KanbanBoard />
         )}
       </div>
-      <CreateWorkOrderModal open={workOrderModalOpen} onClose={() => setWorkOrderModalOpen(false)} />
-      <SchedulePMModal open={pmModalOpen} onClose={() => setPmModalOpen(false)} />
+      <CreateWorkOrderModal
+        open={workOrderModalOpen}
+        onClose={() => setWorkOrderModalOpen(false)}
+        onScheduled={handleScheduled}
+      />
+      <SchedulePMModal
+        open={pmModalOpen}
+        onClose={() => setPmModalOpen(false)}
+        onScheduled={handleScheduled}
+      />
       <AddCardModal
         open={showAddCardModal}
         onClose={() => setShowAddCardModal(false)}
