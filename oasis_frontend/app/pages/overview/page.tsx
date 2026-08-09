@@ -52,8 +52,9 @@ export default function Home() {
 
   // Derive KPI values from the most recent live data, falling back to mock values.
   const liveKpiValues = useMemo(() => {
-    const openIncidents = liveIncidents.filter((i) => (i.status ?? "open") === "open").length;
-    const activeAlerts = liveAlerts.filter((a) => a.status === "active").length + openIncidents;
+    // Count only alerts with status "active" so this matches the Alerts, Sites,
+    // and Assets pages (open incidents are tracked separately, not folded in here).
+    const activeAlerts = liveAlerts.filter((a) => a.status === "active").length;
 
     const avgHealth = liveAssets.length
       ? Math.round(liveAssets.reduce((s, a) => s + ((a as { healthScore?: number }).healthScore ?? 0), 0) / liveAssets.length * 10) / 10
