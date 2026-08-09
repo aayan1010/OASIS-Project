@@ -8,6 +8,7 @@ const {
   getDailyYield,
   getDowntimeEvents,
   getRawRecords,
+  createRawRecord,
 } = require('../services/production.service');
 
 router.get('/schedule-adherence', async (req, res) => {
@@ -52,6 +53,23 @@ router.get('/records', async (req, res) => {
   } catch (err) {
     console.error('GET /api/production/records failed:', err);
     res.status(500).json({ error: 'Failed to fetch production records' });
+  }
+});
+
+// POST /api/production/records — log a new daily production output entry.
+router.post('/records', async (req, res) => {
+  try {
+    const { site_id, date, actual_production, production_target } = req.body;
+    if (!site_id || !date || actual_production == null || production_target == null) {
+      return res.status(400).json({
+        error: 'site_id, date, actual_production, and production_target are required',
+      });
+    }
+    const record = await createRawRecord(req.body);
+    res.status(201).json(record);
+  } catch (err) {
+    console.error('POST /api/production/records failed:', err);
+    res.status(500).json({ error: 'Failed to log production record' });
   }
 });
 

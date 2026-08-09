@@ -119,7 +119,53 @@ export interface IncidentRecord {
 }
 
 // ---------- Local Mock Fallbacks ----------
-const mockDrills: DrillRecord[] = [];
+// When the Express backend is unreachable, drills are persisted to localStorage
+// so scheduled drills survive page reloads and stay visible on the calendar.
+const DRILLS_STORAGE_KEY = "oasis:drills";
+
+function getLocalDrills(): DrillRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(DRILLS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as DrillRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addLocalDrill(drill: DrillRecord) {
+  if (typeof window === "undefined") return;
+  try {
+    const drills = getLocalDrills();
+    window.localStorage.setItem(DRILLS_STORAGE_KEY, JSON.stringify([drill, ...drills]));
+  } catch {
+    // Ignore storage failures (e.g. private mode / quota).
+  }
+}
+
+// When the Express backend is unreachable, work orders created in the UI are
+// persisted to localStorage so they survive reloads and appear on the calendar.
+const WORK_ORDERS_STORAGE_KEY = "oasis:workOrders";
+
+function getLocalWorkOrders(): WorkOrder[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(WORK_ORDERS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as WorkOrder[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addLocalWorkOrder(workOrder: WorkOrder) {
+  if (typeof window === "undefined") return;
+  try {
+    const workOrders = getLocalWorkOrders();
+    window.localStorage.setItem(WORK_ORDERS_STORAGE_KEY, JSON.stringify([workOrder, ...workOrders]));
+  } catch {
+    // Ignore storage failures (e.g. private mode / quota).
+  }
+}
 
 // ---------- Read hooks (fall back to mocks on error) ----------
 
@@ -150,7 +196,7 @@ export function useSites() {
 }
 
 export function useWorkOrders() {
-  return useCollection<WorkOrder>("/maintenance", mockWorkOrders);
+  return useCollection<WorkOrder>("/maintenance", [...getLocalWorkOrders(), ...mockWorkOrders]);
 }
 
 export function useMonthlyBudget() {
@@ -186,7 +232,7 @@ export function useProductionRecords() {
 }
 
 export function useDrills() {
-  return useCollection<DrillRecord>("/drills", mockDrills);
+  return useCollection<DrillRecord>("/drills", getLocalDrills());
 }
 
 export function useProductionPlans() {
@@ -224,8 +270,15 @@ export function resolveAlert(id: string) {
   return mutate(`/alerts/${id}/resolve`, "POST");
 }
 
-export function createWorkOrder(workOrder: Partial<WorkOrder>) {
-  return mutate("/maintenance", "POST", workOrder);
+export async function createWorkOrder(workOrder: Partial<WorkOrder>) {
+  try {
+    return await mutate("/maintenance", "POST", workOrder);
+  } catch {
+    // If the backend is unreachable, persist to localStorage so the work order
+    // survives reloads and appears on the maintenance calendar.
+    addLocalWorkOrder(workOrder as WorkOrder);
+    return workOrder;
+  }
 }
 
 export function updateWorkOrder(id: string, updates: Partial<WorkOrder>) {
@@ -244,12 +297,17 @@ export async function createProductionPlan(plan: Omit<ProductionPlanRecord, "id"
   return mutate<ProductionPlanRecord>("/plans", "POST", plan);
 }
 
+export async function createProductionRecord(record: Omit<ProductionDailyRecord, "id">) {
+  return mutate<ProductionDailyRecord>("/production/records", "POST", record);
+}
+
 export async function createDrill(drill: Partial<DrillRecord>) {
   try {
     return await mutate("/drills", "POST", drill);
   } catch {
-    // If the backend fails or isn't built yet, update the local cache so the UI works
-    mockDrills.unshift(drill as DrillRecord);
+    // If the backend is unreachable, persist to localStorage so the drill
+    // survives reloads and stays visible on the maintenance calendar.
+    addLocalDrill(drill as DrillRecord);
     return drill;
   }
 }

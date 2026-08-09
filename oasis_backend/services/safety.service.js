@@ -53,6 +53,16 @@ async function getDrills() {
   return getAll(COLLECTIONS.drills);
 }
 
+async function createDrill(drill) {
+  const now = new Date().toISOString();
+  const record = {
+    ...drill,
+    status: drill.status ?? 'scheduled',
+    createdAt: now,
+  };
+  return createDoc(COLLECTIONS.drills, record);
+}
+
 async function getInspections() {
   return getAll(COLLECTIONS.inspections);
 }
@@ -75,6 +85,7 @@ module.exports = {
   getComplianceCategories,
   getHazardTypes,
   getDrills,
+  createDrill,
   getInspections,
   seedSafetyData,
 };

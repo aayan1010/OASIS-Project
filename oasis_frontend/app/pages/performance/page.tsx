@@ -14,6 +14,7 @@ import RevenueStreams from "../../pages/finance/components/RevenueStreams";
 import CostMetrics from "../../pages/finance/components/CostMetrics";
 import UpdatePlanModal from "../../pages/performance/components/UpdatePlanModal";
 import LogOutputModal from "../../pages/performance/components/LogOutputModal";
+import LoggedOutputLog from "../../pages/performance/components/LoggedOutputLog";
 import ExportReportModal from "../../pages/overview/components/ExportReportModal";
 import AddCardModal, { type KpiItem, type PremadeTemplate } from "../../pages/overview/components/AddCardModal";
 import {
@@ -67,7 +68,7 @@ function toDateStr(d: unknown): string {
 }
 
 export default function PerformancePage() {
-  const { data: productionRecords } = useProductionRecords();
+  const { data: productionRecords, revalidate: revalidateRecords } = useProductionRecords();
   const { data: revenueStreams } = useRevenueStreams();
   const { data: monthlyBudget } = useMonthlyBudget();
   const { data: costPerUnit } = useCostPerUnit();
@@ -378,6 +379,7 @@ export default function PerformancePage() {
               </div>
             )}
             <ProductionChart />
+            <LoggedOutputLog />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <YieldComparison />
               <div className="bg-background-50 rounded-lg border border-background-200/70 p-5">
@@ -457,6 +459,7 @@ export default function PerformancePage() {
       <LogOutputModal
         open={showLogOutput}
         onClose={() => setShowLogOutput(false)}
+        onSaved={() => revalidateRecords()}
       />
       <ExportReportModal
         open={showExportData}
