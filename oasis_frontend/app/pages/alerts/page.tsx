@@ -1,7 +1,7 @@
 "use client";
 
 import TopOverview from "../../components/feature/TopOverview";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useThresholdAlerts } from "../../hooks/ThresholdAlertContext";
 import ReportIncidentModal from "../../pages/overview/components/ReportIncidentModal";
 import LogHazardModal from "../../pages/alerts/components/LogHazardModal";
@@ -41,13 +41,18 @@ export default function AlertsPage() {
     { type: "Excess Vibration", count: alertRecords.filter((a) => a.alertType === "Excess Vibration").length },
   ];
 
-  const daysSafe = (() => {
+  // Recomputes whenever the incidents list changes (e.g. after reporting a new incident).
+  const { daysSafe, lastIncidentDate } = useMemo(() => {
     const dated = incidents
       .map((i) => new Date(i.dateLogged ?? "").getTime())
       .filter((t) => !isNaN(t));
-    if (!dated.length) return null;
-    return Math.floor((Date.now() - Math.max(...dated)) / 86_400_000);
-  })();
+    if (!dated.length) return { daysSafe: null, lastIncidentDate: null };
+    const latest = Math.max(...dated);
+    return {
+      daysSafe: Math.max(0, Math.floor((Date.now() - latest) / 86_400_000)),
+      lastIncidentDate: new Date(latest).toISOString().slice(0, 10),
+    };
+  }, [incidents]);
 
   const [pinnedIds, setPinnedIds] = useState<string[]>(["days-safe", "active-alerts", "acknowledged", "resolved-alerts"]);
   const [addedCards, setAddedCards] = useState<KpiItem[]>([]);
@@ -237,9 +242,13 @@ export default function AlertsPage() {
                     Days Without Incident
                   </p>
                   <div className="w-24 h-24 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
-                    <span className="text-3xl font-heading font-bold text-primary-600">16</span>
+                    <span className="text-3xl font-heading font-bold text-primary-600">{daysSafe ?? "—"}</span>
                   </div>
-                  <p className="text-xs text-foreground-500">Record: 205 days (Q1 2025)</p>
+                  <p className="text-xs text-foreground-500">
+                    {lastIncidentDate
+                      ? `Last incident: ${lastIncidentDate}`
+                      : "No incidents logged yet"}
+                  </p>
                   <div className="mt-3 flex items-center justify-center gap-6 text-xs">
                     <div className="text-center">
                       <p className="text-lg font-heading font-semibold text-foreground-900">{activeAlertCount}</p>
