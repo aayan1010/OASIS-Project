@@ -19,7 +19,6 @@ import { useAssets, useSites, useAlerts } from "../../lib/api";
 
 const sitesActions = [
   { id: "run-diagnostic", label: "Run Diagnostic", icon: "ri-stethoscope-line", color: "primary" as const },
-  { id: "create-shipment", label: "Create Shipment", icon: "ri-truck-line", color: "primary" as const },
   { id: "export-registry", label: "Export Registry", icon: "ri-download-line", color: "secondary" as const },
 ];
 
